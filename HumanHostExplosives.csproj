@@ -65,6 +65,26 @@
       <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <!-- AoE damage: Creature_Mgr / C_Controller_Base / Char_Status / RagdollManager,
+         Smash_Fallen_Manager (the game's own trap/fall damage pipeline), the creature
+         layer mask, and WeaponHit_Set.HitInfo (a Minus_Char_HP parameter type). -->
+    <Reference Include="Creature">
+      <HintPath>$(ManagedDir)\Creature.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Build_System">
+      <HintPath>$(ManagedDir)\Build_System.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Global_Funcs">
+      <HintPath>$(ManagedDir)\Global_Funcs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Sound_FX">
+      <HintPath>$(ManagedDir)\Sound_FX.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- Drop the built DLL straight into the plugins folder -->

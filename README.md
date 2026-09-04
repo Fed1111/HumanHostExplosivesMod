@@ -15,7 +15,12 @@ A BepInEx 5 plugin for [Human Host](https://store.steampowered.com/) that adds e
 
 ## Configuration
 
-A `ExplosionRadius` setting (default `5`) is generated in `BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg` after the first run, controlling the radius in meters of the explosion effect.
+Two settings are generated in `BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg` after
+the first run, both under `[Explosives]`:
+
+- `ExplosionRadius` (default `5`) — radius in meters of the explosion.
+- `ExplosionDamage` (default `120`) — damage applied at the center of the explosion, falling
+  off linearly to zero at the edge of `ExplosionRadius`.
 
 ## Item pickup logger (diagnostic)
 
@@ -37,8 +42,8 @@ intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no
 / AssetBundle step required — see `ObjLoader.cs` and `TextureLoader.cs`.
 
 **Debug test**: press **G** in-game to throw a physical grenade prop (real Rigidbody, HDRP-lit
-model) from the camera position. It detonates after a 3 second fuse — currently just logs and
-despawns; AoE damage isn't wired up yet.
+model) from the camera position. It detonates after a 3 second fuse, applying AoE damage to
+any creatures in range (see below) before despawning.
 
 ## Status
 
@@ -49,9 +54,13 @@ own assemblies (Human Host is built for BepInEx + ILSpy modding):
   code-only way to add new 3D art through the game's own item system, so a first version will
   reskin an existing item's inventory slot. The grenade's own visuals are fully custom (see
   above) and don't depend on this.
-- AoE damage will reuse the game's own pipeline: `Creature_Mgr.ins.capCol_To_Controller`
-  (radius query) + `Smash_Fallen_Manager.ins.Minus_Char_HP(...)` (the same method traps/falls
-  already use). Not wired up yet.
+- AoE damage is wired up (`ExplosionDamage.cs`): a `Physics.OverlapSphere` query resolved
+  against `Creature_Mgr.ins.capCol_To_Controller` (a `Dictionary<Collider, C_Controller_Base>`,
+  not a radius query itself) finds nearby creatures, and
+  `Smash_Fallen_Manager.ins.Minus_Char_HP(...)` (the same method traps/falls already use)
+  applies damage with linear falloff by distance. The thrower is excluded; already-dead
+  creatures are skipped since `Minus_Char_HP` doesn't check that itself. Out of scope for now:
+  line-of-sight/occlusion, damage to buildables, and explosion VFX/SFX.
 - The throw/equip mechanic will follow the bow-and-arrow pattern (`Arrow_Impact`): an
   `Equipment`-slot item that spawns a physical thrown prefab. Not wired up yet — for now the
   grenade only spawns via the debug keybind above.

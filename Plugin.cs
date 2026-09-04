@@ -17,6 +17,7 @@ namespace HumanHostExplosives
         internal static ManualLogSource Log;
 
         internal static ConfigEntry<float> ExplosionRadius;
+        internal static ConfigEntry<float> ExplosionDamage;
 
         private Harmony _harmony;
 
@@ -33,12 +34,18 @@ namespace HumanHostExplosives
                 5f,
                 "Radius in meters of the explosion effect.");
 
+            ExplosionDamage = Config.Bind(
+                "Explosives",
+                "ExplosionDamage",
+                120f,
+                "Damage applied at the center of the explosion, falling off linearly to zero at the edge of ExplosionRadius.");
+
             _harmony = new Harmony(Guid);
             _harmony.PatchAll();
 
             LoadGrenadeAssets();
 
-            Log.LogInfo($"{Name} v{Version} loaded. ExplosionRadius = {ExplosionRadius.Value}");
+            Log.LogInfo($"{Name} v{Version} loaded. ExplosionRadius = {ExplosionRadius.Value}, ExplosionDamage = {ExplosionDamage.Value}");
         }
 
         private void LoadGrenadeAssets()
@@ -104,7 +111,9 @@ namespace HumanHostExplosives
             rb.mass = 0.4f;
             rb.velocity = camTrans.forward * 8f + Vector3.up * 2f;
 
-            go.AddComponent<GrenadeProjectile>();
+            var grenade = go.AddComponent<GrenadeProjectile>();
+            grenade.MaxDamage = ExplosionDamage.Value;
+            grenade.Thrower = Player_Input.ins;
 
             Log.LogInfo("[Grenade] Test grenade thrown.");
         }
