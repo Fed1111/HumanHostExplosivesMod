@@ -29,18 +29,29 @@ This is temporary tooling to identify the exact Addressables identity of existin
 items (e.g. a soda can) so a new item (grenade/molotov) can reuse its model/icon as a
 placeholder, since new 3D art can't be authored from outside the game's Unity project.
 
+## Grenade model
+
+`Assets/Grenade/` holds the game-ready grenade asset: `grenade.obj` (6,000 tris, decimated
+from a 289k-tri AI-generated source using per-face UV transfer to keep the texture mapping
+intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no Unity Editor
+/ AssetBundle step required — see `ObjLoader.cs` and `TextureLoader.cs`.
+
+**Debug test**: press **G** in-game to throw a physical grenade prop (real Rigidbody, HDRP-lit
+model) from the camera position. It detonates after a 3 second fuse — currently just logs and
+despawns; AoE damage isn't wired up yet.
+
 ## Status
 
 Goal: throwable explosives (grenades, molotovs). Plan, informed by decompiling the game's
 own assemblies (Human Host is built for BepInEx + ILSpy modding):
 
 - Items are Addressables prefabs carrying an `Icon_Info`/`Item_Info` component — there's no
-  code-only way to add new 3D art, so a first version will reskin an existing item.
+  code-only way to add new 3D art through the game's own item system, so a first version will
+  reskin an existing item's inventory slot. The grenade's own visuals are fully custom (see
+  above) and don't depend on this.
 - AoE damage will reuse the game's own pipeline: `Creature_Mgr.ins.capCol_To_Controller`
   (radius query) + `Smash_Fallen_Manager.ins.Minus_Char_HP(...)` (the same method traps/falls
-  already use).
+  already use). Not wired up yet.
 - The throw/equip mechanic will follow the bow-and-arrow pattern (`Arrow_Impact`): an
-  `Equipment`-slot item that spawns a physical thrown prefab.
-
-Not yet implemented: no explosive item exists in-game yet. This PR only adds a diagnostic
-logger to identify a real item to reskin.
+  `Equipment`-slot item that spawns a physical thrown prefab. Not wired up yet — for now the
+  grenade only spawns via the debug keybind above.
