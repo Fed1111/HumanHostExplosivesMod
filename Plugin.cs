@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using HarmonyLib;
 
 namespace HumanHostExplosives
 {
@@ -15,6 +16,8 @@ namespace HumanHostExplosives
 
         internal static ConfigEntry<float> ExplosionRadius;
 
+        private Harmony _harmony;
+
         private void Awake()
         {
             Log = Logger;
@@ -24,6 +27,9 @@ namespace HumanHostExplosives
                 "ExplosionRadius",
                 5f,
                 "Radius in meters of the explosion effect.");
+
+            _harmony = new Harmony(Guid);
+            _harmony.PatchAll();
 
             Log.LogInfo($"{Name} v{Version} loaded. ExplosionRadius = {ExplosionRadius.Value}");
         }

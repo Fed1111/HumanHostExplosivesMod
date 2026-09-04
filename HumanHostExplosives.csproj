@@ -39,6 +39,20 @@
       <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <!-- Game-specific gameplay assemblies -->
+    <Reference Include="UI">
+      <HintPath>$(ManagedDir)\UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Item_Info">
+      <HintPath>$(ManagedDir)\Item_Info.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Addressables">
+      <HintPath>$(ManagedDir)\Unity.Addressables.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- Drop the built DLL straight into the plugins folder -->
