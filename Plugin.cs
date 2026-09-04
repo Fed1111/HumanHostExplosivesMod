@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 
 namespace HumanHostExplosives
@@ -12,10 +13,19 @@ namespace HumanHostExplosives
 
         internal static ManualLogSource Log;
 
+        internal static ConfigEntry<float> ExplosionRadius;
+
         private void Awake()
         {
             Log = Logger;
-            Log.LogInfo($"{Name} v{Version} loaded.");
+
+            ExplosionRadius = Config.Bind(
+                "Explosives",
+                "ExplosionRadius",
+                5f,
+                "Radius in meters of the explosion effect.");
+
+            Log.LogInfo($"{Name} v{Version} loaded. ExplosionRadius = {ExplosionRadius.Value}");
         }
     }
 }
