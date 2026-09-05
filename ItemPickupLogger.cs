@@ -3,10 +3,11 @@ using HarmonyLib;
 namespace HumanHostExplosives
 {
     /// <summary>
-    /// Diagnostic-only: logs identifying data (prefab name, Addressables key/GUID) for every
-    /// item the player picks up, so we can look up the real Addressables identity of existing
-    /// items (e.g. "soda can") to reuse as a base for new items, without a working decompiled
-    /// dump of the packed Addressables catalog.
+    /// Diagnostic-only: logs identifying data (prefab name, Addressables key/GUID, Icon_Info
+    /// fields) for every item the player picks up, so we can find the real Addressables identity
+    /// of an existing item to clone as a template (see Registry/ExplosiveItemRegistry.cs) or to
+    /// use as a craft recipe material, without a working decompiled dump of the packed
+    /// Addressables catalog.
     /// </summary>
     [HarmonyPatch(typeof(Item_Slot_Mgr), nameof(Item_Slot_Mgr.PickItemIn_Bag_Belt))]
     internal static class ItemPickupLogger_Patch
@@ -23,8 +24,9 @@ namespace HumanHostExplosives
             // Icon_Info lives on the icon prefab, not the dropped-world Item_Info - resolve it via
             // the same Addressables key so we can log _Tag/_SlotType/ModelRef alongside it. This is
             // exactly the data Registry.TemplateIconGuid/TemplateModelGuid and per-item RecipeMaterial
-            // config need: pick up a stackable Hand_R item (a bandage/food) to find a template, or
-            // any craftable material to find its recipe GUID.
+            // config need: pick up a simple one-handed tool/melee weapon (a knife/hatchet/hammer -
+            // consumables have no working hand-model content in this game yet) to find a template,
+            // or any craftable material to find its recipe GUID.
             string tag = "(unresolved)";
             string slotType = "(unresolved)";
             bool canStack = false;

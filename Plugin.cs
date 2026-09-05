@@ -52,11 +52,11 @@ namespace HumanHostExplosives
 
             TemplateIconGuid = Config.Bind(
                 "Registry", "TemplateIconGuid", "",
-                "assetRef_Key/icon GUID of an existing stackable Hand_R consumable (e.g. a bandage or food item) to clone as the structural base for our own items. " +
-                "Find it by picking up such an item in-game with Diagnostics.EnableItemPickupLogger on and reading the BepInEx log. Required - registration is skipped while empty.");
+                "assetRef_Key/icon GUID of an existing item to clone as the structural base for our own items - it supplies the hand-equip animation and IK rig, so it must be a SIMPLE ONE-HANDED TOOL OR MELEE WEAPON (a knife, hatchet, hammer, etc) with real Hand_R animation content, not a consumable (food/water/bandages currently have no hand-model/animation of their own in this game) and not anything two-handed (bow, rifle). " +
+                "Find it by picking up such a tool in-game with Diagnostics.EnableItemPickupLogger on and reading the BepInEx log. Required - registration is skipped while empty.");
             TemplateModelGuid = Config.Bind(
                 "Registry", "TemplateModelGuid", "",
-                "ModelRef GUID (the held 3D model, not the icon) of the same template item, from the same log line. Required - registration is skipped while empty.");
+                "ModelRef GUID (the held 3D model, not the icon) of the same template tool/weapon, from the same log line. Required - registration is skipped while empty.");
 
             EnableDiagnostics = Config.Bind(
                 "Diagnostics", "EnableDiagnostics", true,

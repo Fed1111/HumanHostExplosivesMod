@@ -8,11 +8,16 @@ using UnityEngine.AddressableAssets;
 namespace HumanHostExplosives.Registry
 {
     /// <summary>
-    /// Builds each ExplosiveDef into a real inventory item by cloning a stackable Hand_R
-    /// consumable (a food/bandage-shaped item, configured via Plugin.TemplateIconGuid /
-    /// TemplateModelGuid) and swapping its identity, icon, tooltip and 3D model. The clone
-    /// keeps the template's Tool_Interacter/Weapon_Melee/animation wiring, since that's what
-    /// makes the game hand-equip and animate it correctly without a custom weapon rig.
+    /// Builds each ExplosiveDef into a real inventory item by cloning a simple one-handed
+    /// tool/melee weapon (configured via Plugin.TemplateIconGuid / TemplateModelGuid) and
+    /// swapping its identity, icon, tooltip and 3D model. The clone keeps the template's
+    /// Tool_Interacter/Weapon_Melee/animation wiring, since that's what makes the game
+    /// hand-equip and animate it correctly without a custom weapon rig - a tool/weapon
+    /// template is required here, not a consumable, because consumables (food/water/bandages)
+    /// have no working hand-model/animation content in this game yet. The clone still ends up
+    /// looking and behaving like a stackable consumable at the UI/inventory level (forced
+    /// _Can_Stack/_Tag below) - Weapon_Melee's own attack/durability logic on the clone never
+    /// runs, because ExplosiveUseHook suppresses LMB-attack for our tag before it can fire.
     /// </summary>
     internal static class ExplosiveItemRegistry
     {
@@ -127,8 +132,9 @@ namespace HumanHostExplosives.Registry
             {
                 Plugin.Log.LogWarning(
                     "[Registry] TemplateIconGuid/TemplateModelGuid are not set. Run the game once with " +
-                    "Diagnostics.EnableItemPickupLogger on, pick up any stackable hand item (a bandage or " +
-                    "food works), and copy the logged assetRef_Key/ModelRef GUID into the config file. " +
+                    "Diagnostics.EnableDiagnostics on, pick up a simple one-handed tool or melee weapon " +
+                    "(a knife/hatchet/hammer - not a consumable, not anything two-handed), and copy the " +
+                    "logged assetRef_Key/ModelRef GUID into the config file. " +
                     "Explosive item registration skipped for this session.");
                 _buildFailed = true;
                 return false;

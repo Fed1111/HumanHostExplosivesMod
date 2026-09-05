@@ -18,22 +18,32 @@ explosives (grenade, Molotov) as real inventory items — equip from the hotbar,
 ## One-time setup before the items work
 
 The mod registers grenade/Molotov as brand-new inventory items by cloning an **existing
-stackable hand item** (a bandage, food, etc.) for its structural wiring — hand-equip, animation,
-durability — then overwriting its icon, 3D model and identity. It needs to know which existing
-item to clone, and that can't be hardcoded: it depends on the game's Addressables catalog, which
-isn't dumped anywhere. So, once, with the game running:
+one-handed tool or melee weapon** (a knife, hatchet, hammer, etc) for its structural wiring —
+hand-equip, animation, IK rig — then overwriting its icon, 3D model and identity. It must be a
+tool/weapon specifically, **not a consumable**: food/water/bandages currently have no working
+hand-model/animation content of their own in this game, so there's nothing usable to clone there
+yet. Avoid anything two-handed too (bow, rifle) - a plain one-handed melee tool is the closest
+shape to a thrown grenade. Which exact item to clone can't be hardcoded — it depends on the
+game's Addressables catalog, which isn't dumped anywhere. So, once, with the game running:
 
 1. Leave `Diagnostics.EnableDiagnostics = true` (the default) in the generated config.
-2. Pick up any **stackable hand item** (a bandage or piece of food works) with this mod loaded.
-   The BepInEx log will print a line like:
+2. Pick up a **simple one-handed tool or melee weapon** (a knife/hatchet/hammer) with this mod
+   loaded. The BepInEx log will print a line like:
    ```
-   [ItemPickup] name='...' assetRefKey='...' iconGUID='...' tag='SimpleBandage' slotType='Hand_R' canStack=True modelRefGuid='...' picker='...'
+   [ItemPickup] name='...' assetRefKey='...' iconGUID='...' tag='Knife' slotType='Hand_R' canStack=False modelRefGuid='...' picker='...'
    ```
 3. Copy `iconGUID` into `Registry.TemplateIconGuid` and `modelRefGuid` into
    `Registry.TemplateModelGuid` in the config file
    (`BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg`).
 4. Restart, or let the mod's retry loop pick it up (it retries for ~30s after
    `Item_Slot_Mgr` wakes).
+
+The clone is still forced to look/behave like a stackable consumable at the UI level
+(`_Can_Stack`/`_Tag` are overwritten regardless of what the template item normally is — the
+already-installed `MiningDrill` mod does the same thing to its own cloned template) and the
+template's own attack/durability-per-swing behavior never runs, because `ExplosiveUseHook`
+suppresses LMB-attack for our tag (via the game's own `Is_Belt_LMB_Use_Active` flag) before
+`Weapon_Melee.On_Attack()` can fire.
 
 Recipes work the same way: pick up whatever material you want to require (scrap metal, cloth,
 etc.), copy its `iconGUID` into `Grenade.RecipeMaterial1Guid` / `Molotov.RecipeMaterial1Guid`
@@ -60,11 +70,16 @@ log spam.
   invented GUIDs and serves runtime-built `GameObject`s instead of anything from the game's packed
   catalog. This is a real new item, not a reskin of an existing one.
 - **Throw mechanic** (`Gameplay/ExplosiveUseHook.cs`): no custom weapon rig. The game already has
-  a first-class "equip a stackable consumable, LMB uses it, consume 1 from the stack" pipeline
-  (used by food/bandages/medkits/etc.) — a grenade fits that shape exactly. Two Harmony postfixes
-  on `Item_Slot_Mgr` (`Is_Icon_Usable`, `Trigger_Use_For_Belt_Slot`) hook our item tags into it.
-  (An earlier plan to model this on the bow's `Weapon_Range`/`Arrow_Impact` classes turned out to
-  be the wrong fit — those are ~5,900 lines of draw/aim/animation state and arrow-sticking
+  a first-class "equip it, LMB uses it, consume 1 from the stack" pipeline (used by
+  food/bandages/medkits/etc, normally on consumable-shaped items) - a grenade fits that use-shape
+  exactly even though it has to clone a tool/weapon's model for its animation (see setup above).
+  Two Harmony postfixes on `Item_Slot_Mgr` (`Is_Icon_Usable`, `Trigger_Use_For_Belt_Slot`) hook our
+  item tags into it; whether LMB triggers "use" instead of the model's original melee attack is
+  gated purely by the UI-level `Is_Belt_LMB_Use_Active` flag (`Is_Icon_Usable` for the current
+  tag), not by anything on the cloned prefab, which is what makes cloning a tool/weapon (for its
+  animation) safe even though the use-mechanic itself is consumable-shaped.
+  (An earlier plan to model the throw on the bow's `Weapon_Range`/`Arrow_Impact` classes turned out
+  to be the wrong fit — those are ~5,900 lines of draw/aim/animation state and arrow-sticking
   bookkeeping that a grenade doesn't need at all.)
 - **Grenade** (`GrenadeProjectile.cs`): real Rigidbody flight, fixed fuse timer, then AoE falloff
   damage via `ExplosionDamage.cs` (`Physics.OverlapSphere` + the game's own
