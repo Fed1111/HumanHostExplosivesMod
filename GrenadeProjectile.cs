@@ -35,7 +35,35 @@ namespace HumanHostExplosives
                 Plugin.Log.LogError($"[Grenade] ExplosionDamage.Apply threw: {ex}");
             }
 
-            Plugin.Log.LogInfo($"[Grenade] Detonated at {transform.position}, radius={radius}, hits={hits}.");
+            int buildableHits = 0;
+            try
+            {
+                buildableHits = ExplosionDamage.ApplyToBuildables(transform.position, radius, Plugin.BuildableDamage.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError($"[Grenade] ExplosionDamage.ApplyToBuildables threw: {ex}");
+            }
+
+            try
+            {
+                ExplosionVisual.Spawn(transform.position, radius);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError($"[Grenade] ExplosionVisual.Spawn threw: {ex}");
+            }
+
+            try
+            {
+                ExplosionSound.Play(transform.position, Plugin.ExplosionVolume.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError($"[Grenade] ExplosionSound.Play threw: {ex}");
+            }
+
+            Plugin.Log.LogInfo($"[Grenade] Detonated at {transform.position}, radius={radius}, creatureHits={hits}, buildableHits={buildableHits}.");
             Destroy(gameObject);
         }
     }

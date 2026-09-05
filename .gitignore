@@ -6,3 +6,6 @@ obj/
 # Raw AI-generated source asset (29MB+, unprocessed) - only the decimated
 # game-ready version in Assets/Grenade is committed.
 Assets/Grenade_raw/
+
+# Session-local Claude Code settings
+.claude/

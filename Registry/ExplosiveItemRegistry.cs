@@ -240,6 +240,28 @@ namespace HumanHostExplosives.Registry
                 filter.sharedMesh = def.RuntimeMesh;
                 renderer.sharedMaterial = def.RuntimeMaterial;
 
+                // The mesh's own origin was authored independently of the template weapon's grip
+                // point, so swapping meshes alone can leave the held model sitting well off from
+                // the hand (e.g. wherever the original weapon's blade/head was). def.HandOffset is
+                // an ABSOLUTE target for WeaponPosData.localPosOfHand (not a delta added to the
+                // template's own tuned value) - see HandOffsetFixer for why: several delta-based
+                // attempts each moved the model in some other direction without ever correcting
+                // the actual problem, since localPosOfHand's axes are evaluated in the hand
+                // bone's own (rotated) local space, not anything intuitively axis-aligned.
+                HandOffsetFixer.Apply(clone, def.HandOffset, def.Tag);
+
+                // ApplyFirstPerson (Tool_Interacter._1stCamMod) was a dead end: decompiling
+                // CamController.Modify_1st_Person_Cam_LoPos() shows it ends in
+                // `_mainCamTrans.localPosition = ...` - it repositions the PLAYER'S OWN CAMERA,
+                // not the held item, which is why editing it made the grenade's screen position
+                // erratic (the viewpoint itself was moving, worse compounded by a hardcoded
+                // override during the equip-switch animation and extra movement-direction wobble)
+                // rather than fixing anything. WeaponPosData/HandOffset above remains the real,
+                // and only, governor of the item's actual hand-attached position - this game has
+                // no separate first-person-only viewmodel layer, so what the player sees for their
+                // own held item in first person IS the same mesh HandOffset positions.
+                // Deliberately not calling HandOffsetFixer.ApplyFirstPerson here any more.
+
                 return clone;
             }
             catch

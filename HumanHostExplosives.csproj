@@ -43,6 +43,37 @@
       <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Animancer backs the character animation layers (Play_Anim_UpLayer / _UpperBodyLayer). -->
+    <Reference Include="Kybernetik.Animancer">
+      <HintPath>$(ManagedDir)\Kybernetik.Animancer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- MyStatics.Get_NoneRepeat_Random_Index - vanilla's non-repeating clip picker. -->
+    <Reference Include="Static_Class">
+      <HintPath>$(ManagedDir)\Static_Class.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- OnGUI for the in-game config-reload confirmation. -->
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <!-- Game-specific gameplay assemblies -->
     <Reference Include="UI">
@@ -80,6 +111,14 @@
       <Private>false</Private>
     </Reference>
 
+    <!-- Tool_Interacter, for the WeaponPosData hand-offset fix (Equip_This_Tool overwrites the
+         held model's transform from this data every equip, so the offset has to live here, not
+         on any transform) -->
+    <Reference Include="Hand_Tools">
+      <HintPath>$(ManagedDir)\Hand_Tools.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
     <!-- AoE damage: Creature_Mgr / C_Controller_Base / Char_Status / RagdollManager,
          Smash_Fallen_Manager (the game's own trap/fall damage pipeline), the creature
          layer mask, and WeaponHit_Set.HitInfo (a Minus_Char_HP parameter type). -->
@@ -111,6 +150,14 @@
     </ItemGroup>
     <Copy SourceFiles="@(GrenadeAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Grenade"
+          ContinueOnError="true" />
+    <!-- Throw animation AssetBundle (built from Unity 2022.3.62f3). Optional: if it is absent
+         the mod logs once and throws instantly, so a missing bundle must not fail the build. -->
+    <ItemGroup>
+      <AnimAssets Include="$(MSBuildProjectDirectory)\Assets\Anim\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AnimAssets)"
+          DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Assets\Anim"
           ContinueOnError="true" />
   </Target>
 

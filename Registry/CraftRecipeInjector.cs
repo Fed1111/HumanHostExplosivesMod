@@ -109,6 +109,14 @@ namespace HumanHostExplosives.Registry
             {
                 return;
             }
+            if (def.RuntimeIconInfo == null)
+            {
+                // Item never finished registering (e.g. its mesh/texture is missing - see
+                // ExplosiveItemRegistry.TryBuildAll). Injecting a recipe entry with a null
+                // Icon_Info would corrupt this workbench's craft list, so skip it entirely
+                // rather than fail partially.
+                return;
+            }
             if (!Enum.TryParse(def.WorkbenchTypeName, out Craft_Mgr.WorkbenchType targetType))
             {
                 Plugin.Log.LogWarning($"[Registry] '{def.Tag}': unknown WorkbenchType '{def.WorkbenchTypeName}', skipping recipe injection.");

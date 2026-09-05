@@ -19,7 +19,14 @@ namespace HumanHostExplosives
                 return;
             }
 
-            string iconGuid = DPI._ItemInfo._IconRef != null ? DPI._ItemInfo._IconRef.AssetGUID : "(none)";
+            // A world-dropped item's identity lives in _drop_IconGUID, not _IconRef/assetRef_Key -
+            // Item_Slot_Mgr.PickItemIn_Bag_Belt/Find_CombineSlot itself compares
+            // droppedItemInfo._drop_IconGUID against slot GUIDs, so that's the field that's
+            // actually populated on a Drop_Pick_Item's Item_Info (confirmed by decompiling it after
+            // an earlier attempt using _IconRef came back empty for every pickup).
+            string iconGuid = !string.IsNullOrEmpty(DPI._ItemInfo._drop_IconGUID)
+                ? DPI._ItemInfo._drop_IconGUID
+                : (DPI._ItemInfo._IconRef != null ? DPI._ItemInfo._IconRef.AssetGUID : "(none)");
 
             // Icon_Info lives on the icon prefab, not the dropped-world Item_Info - resolve it via
             // the same Addressables key so we can log _Tag/_SlotType/ModelRef alongside it. This is
