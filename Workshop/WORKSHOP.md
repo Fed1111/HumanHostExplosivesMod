@@ -3,20 +3,43 @@
 Everything needed to publish. **The upload itself needs your Steam account**, so that step is
 yours; everything up to it is prepared here.
 
-## Files to ship
+## Files to ship — VERIFIED against the game's own installer
+
+App ID **2393970**. Human Host publishes mods through Steam Workshop and installs them itself;
+`Human Host_Data/ModBrowser/Data/installed_mods.json` maps published-file IDs to installed files.
+
+`Workshop/upload/` is the ready-to-publish item root:
 
 ```
 HumanHostExplosives/
-  HumanHostExplosives.dll          the plugin
-  Assets/Anim/throwanim.bundle     throw animation (Unity 2022.3.62f3)
-  Grenade/grenade.obj              held model
-  Grenade/grenade.mtl
-  Grenade/grenade.png              model texture
-  Grenade/grenade_icon.png         inventory icon
+  HumanHostExplosives.dll
+  Grenade/grenade.obj, grenade.mtl, grenade.png, grenade_icon.png
+  Assets/Anim/throwanim.bundle
 ```
 
-Drop that folder into `Human Host/BepInEx/plugins/`. Requires BepInEx 5 (already required by the
-other mods on this game).
+**Subfolders are supported** — the installer walks the item with
+`Directory.GetFiles(workshopPath, "*", SearchOption.AllDirectories)` and copies each file to
+`plugins/<relative path>`, creating directories as needed. Detection
+(`SteamManager.HasModFilesInPlugins`) then checks the *same* relative path, so the layout must
+match on both sides. Both confirmed by reading `SteamManager.dll`.
+
+> **Use the named `HumanHostExplosives/` wrapper folder, not a flat root.** Paths are preserved
+> relative to `plugins/` itself, so a flat item would scatter `Grenade/` and `Assets/` directly
+> into the shared plugins directory — generic names, and a real collision risk with other mods.
+> The wrapper installs to `plugins/HumanHostExplosives/...`, which is exactly the layout the mod
+> already expects (it resolves assets relative to its own DLL) and matches how it runs in dev.
+>
+> Every currently-published mod for this game happens to be flat, because none of them ship
+> assets — MiningDrill is a single 29 MB DLL with everything embedded. Flat is the convention,
+> not a constraint.
+
+Optional sidecars seen on published mods, neither required:
+
+- `<name>.steampreview.png` — AutoRun ships one; a preview image for the in-game browser.
+- `<name>.hhmm-i18n.json` — translated config-entry descriptions for the mod manager. Worth adding
+  later if the mod gets traction; the format is a flat `{ "EntryName": { "de": "...", ... } }`.
+
+BepInEx 5.4.23.2 is what the game's own installer fetches, so target that.
 
 ## Images
 
@@ -93,11 +116,12 @@ BepInEx 5. Singleplayer tested.
 
 ## Publishing
 
-Human Host ships its own **ModBrowser** (`Human Host_Data/ModBrowser/`) with
-`Config/mod_category.json` and `Data/installed_mods.json`, so the game has a first-party mod
-listing — check whether it publishes through Steam Workshop directly or expects a manifest
-before uploading by hand. If Workshop is the route, the usual path is the game's own uploader if
-it has one, otherwise SteamCMD `workshop_build_item` with an app-specific VDF.
+The game has a built-in mod browser and installs Workshop items itself, so publishing is the
+normal Steam UGC flow for app **2393970**: upload the contents of `Workshop/upload/` as the item
+content, with `workshop_thumbnail.png` as the preview.
 
-**[?] Not verified:** whether this game's Workshop accepts BepInEx plugin folders directly, or
-expects a wrapper format. Confirm against a published mod for this appid before your first upload.
+Use SteamCMD's `workshop_build_item` with a VDF pointing `contentfolder` at
+`Workshop/upload` and `previewfile` at `Workshop/workshop_thumbnail.png`, or whatever in-game
+publish flow the ModBrowser exposes if it has one.
+
+**The upload needs your Steam account, so that step is yours.** Everything up to it is prepared.
