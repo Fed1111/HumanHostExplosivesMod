@@ -11,7 +11,13 @@ namespace HumanHostExplosives
         /// game's own trap/fall damage pipeline (Creature_Mgr + Smash_Fallen_Manager.Minus_Char_HP).
         /// Returns the number of creatures hit.
         /// </summary>
-        internal static int Apply(Vector3 center, float radius, float maxDamage, C_Controller_Base attacker)
+        internal static int Apply(
+            Vector3 center,
+            float radius,
+            float maxDamage,
+            C_Controller_Base attacker,
+            float hitFlyForce = 1f,
+            float hitReact = 0.8f)
         {
             Creature_Mgr creatureMgr = Creature_Mgr.ins;
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
@@ -69,8 +75,8 @@ namespace HumanHostExplosives
                     damage: damage,
                     damageInterval: 0.05f,
                     hitDirect: hitDirect,
-                    hitFlyForce: 1f,
-                    hitReact: 0.8f,
+                    hitFlyForce: hitFlyForce,
+                    hitReact: hitReact,
                     mustHitDown: false,
                     bloodPos: targetPos,
                     bloodParticle: null,

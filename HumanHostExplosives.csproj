@@ -39,6 +39,10 @@
       <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <!-- Game-specific gameplay assemblies -->
     <Reference Include="UI">
@@ -51,6 +55,16 @@
     </Reference>
     <Reference Include="Unity.Addressables">
       <HintPath>$(ManagedDir)\Unity.Addressables.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.ResourceManager">
+      <HintPath>$(ManagedDir)\Unity.ResourceManager.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Tooltip_Text / ToolTipInfo / Language_Mgr, for item tooltips -->
+    <Reference Include="Language">
+      <HintPath>$(ManagedDir)\Language.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Camera">

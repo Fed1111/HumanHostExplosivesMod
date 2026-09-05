@@ -5,23 +5,16 @@ namespace HumanHostExplosives
     /// <summary>
     /// Physical thrown grenade: real Rigidbody flight, fuse timer, then AoE damage on detonation.
     /// </summary>
-    internal class GrenadeProjectile : MonoBehaviour
+    internal class GrenadeProjectile : ExplosiveProjectile
     {
         public float FuseSeconds = 3f;
         public float MaxDamage = 120f;
-        public C_Controller_Base Thrower;
 
-        private float _spawnTime;
         private bool _detonated;
-
-        private void Awake()
-        {
-            _spawnTime = Time.time;
-        }
 
         private void Update()
         {
-            if (!_detonated && Time.time - _spawnTime >= FuseSeconds)
+            if (!_detonated && Time.time - SpawnTime >= FuseSeconds)
             {
                 Detonate();
             }
