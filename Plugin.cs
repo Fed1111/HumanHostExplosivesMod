@@ -276,10 +276,12 @@ namespace HumanHostExplosives
                 "obtainable. Kept as one key rather than one per item because spare keys are scarce - H is the game's " +
                 "camera toggle, for instance.");
             ReloadConfigKey = Config.Bind(
-                "Debug", "ReloadConfigKey", KeyCode.F10,
+                "Debug", "ReloadConfigKey", KeyCode.F7,
                 "Press this key in-game to re-read this .cfg from disk. The game has no hot reload, so without it every " +
                 "tweak to a value like ThrowOriginRight costs a full relaunch. Note BepInEx rewrites this file on exit, " +
-                "so edit it while the game is running and press this - do not edit and then quit, or your edit is lost.");
+                "so edit it while the game is running and press this - do not edit and then quit, or your edit is lost. " +
+                "Was F10; moved to F7 to free F10 for another installed mod's own settings key. F8/F9/F11 are taken " +
+                "too (F8 is the game's own error-hint key, F9 is the camera mod, F11 is the shield mod).");
 
             Defs = BuildDefs();
 

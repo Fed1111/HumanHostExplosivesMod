@@ -118,7 +118,7 @@ your loot-rate setting and looting skill automatically.
 [h2]Configuration[/h2]
 Everything is in [i]BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg[/i] — blast radius,
 damage, self-damage, fuse, throw power, animation speed, release timing, sound, loot tags. Press
-[b]F10[/b] in game to reload the config without restarting.
+[b]F7[/b] in game to reload the config without restarting.
 
 [h2]Requirements[/h2]
 BepInEx 5. Singleplayer tested.
