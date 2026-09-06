@@ -230,22 +230,6 @@ namespace HumanHostExplosives
         }
 
         /// <summary>
-        /// Evenly distributed directions on a sphere (Fibonacci lattice). Beats random directions
-        /// here: no clumping and no bald patches, so fragment coverage is consistent shot to shot
-        /// instead of occasionally missing a target that was squarely in range.
-        /// </summary>
-        private static Vector3 FibonacciDirection(int i, int total)
-        {
-            float k = i + 0.5f;
-            float phi = Mathf.Acos(1f - 2f * k / total);
-            float theta = Mathf.PI * (1f + Mathf.Sqrt(5f)) * k;
-            return new Vector3(
-                Mathf.Cos(theta) * Mathf.Sin(phi),
-                Mathf.Cos(phi),
-                Mathf.Sin(theta) * Mathf.Sin(phi));
-        }
-
-        /// <summary>
         /// Maps a hit collider back to the character that owns it. Creature_Mgr keys its lookup by
         /// capsule collider, but a fragment usually lands on a ragdoll bone collider instead, so
         /// walk up the hierarchy before giving up.

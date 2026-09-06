@@ -60,7 +60,6 @@ namespace HumanHostExplosives
         internal static ConfigEntry<bool> EnableNailbomb;
         internal static ConfigEntry<float> NailbombDamage;
         internal static ConfigEntry<float> NailbombRadius;
-        internal static ConfigEntry<int> NailbombFragments;
         internal static ConfigEntry<float> NailbombFragmentDamage;
         internal static ConfigEntry<float> NailbombBlockDamage;
         internal static ConfigEntry<bool> NailbombCausesBleed;
@@ -206,16 +205,13 @@ namespace HumanHostExplosives
                 "Nailbomb/nailbomb.obj, nailbomb.png and nailbomb_icon.png next to the DLL and turn this on.");
             NailbombDamage = Config.Bind(
                 "Nailbomb", "NailbombDamage", 200f,
-                "Total shrapnel damage against creatures and players, split across NailbombFragments. Far below the " +
-                "grenade's, but it lands concentrated on whatever is actually exposed rather than spread over an area.");
+                "Total shrapnel damage against creatures and players, split across how much of a target's body is " +
+                "exposed to the blast point. Far below the grenade's, but it lands concentrated on whatever is " +
+                "actually exposed rather than spread over an area.");
             NailbombRadius = Config.Bind(
                 "Nailbomb", "NailbombRadius", 9f,
                 "How far fragments travel. Larger than the grenade's blast radius - fragments carry - but they only " +
                 "hurt what they can actually reach in a straight line, so cover protects.");
-            NailbombFragments = Config.Bind(
-                "Nailbomb", "NailbombFragments", 48,
-                "Number of shrapnel rays cast on detonation, spread evenly over a sphere. Higher is smoother and " +
-                "slightly more expensive; 48 is a good balance.");
             NailbombFragmentDamage = Config.Bind(
                 "Nailbomb", "NailbombFragmentDamage", 1f,
                 "Multiplier on each fragment's share of NailbombDamage. Raise to make close range brutal without " +
@@ -262,7 +258,7 @@ namespace HumanHostExplosives
                 "ModelRef GUID (the held 3D model, not the icon) of the same template tool/weapon, from the same log line. Required - registration is skipped while empty.");
 
             EnableDiagnostics = Config.Bind(
-                "Diagnostics", "EnableDiagnostics", true,
+                "Diagnostics", "EnableDiagnostics", false,
                 "Logs extra detail (Icon_Info fields, craft window tab layout) needed to fill in the Registry/* and per-item recipe config above. Safe to leave on; turn off once configured.");
             DebugThrowGrenadeKey = Config.Bind(
                 "Debug", "ThrowGrenadeKey", KeyCode.G,
@@ -351,12 +347,14 @@ namespace HumanHostExplosives
                     Config.Bind("Grenade", "FirstPersonOffsetY", -0.5f, "Absolute local-Y target for all six Tool_Interacter._1stCamMod entries. Isolating this axis: X/Z held at the pickaxe's tuned values, only Y lowered, to see which axis actually controls screen-vertical position (the grenade appeared near the shoulder at Y=-0.05, need it down at the hand).").Value,
                     Config.Bind("Grenade", "FirstPersonOffsetZ", 0.64f, "Absolute local-Z target for all six Tool_Interacter._1stCamMod entries.").Value),
             };
-            // Improvised fragmentation grenade: a scrap-iron casing packed with gunpowder and
-            // taped shut. Gun_Powder is a Chemistry-workbench product, so this lands as a
-            // mid-game craft rather than something makeable on day one.
-            AddRecipeSlot(grenade, "Grenade", 1, MatScrapIron, 2, "Scrap Iron - casing");
-            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 3, "Gun Powder - filler");
-            AddRecipeSlot(grenade, "Grenade", 3, MatDuctTape, 1, "Duct Tape - binding");
+            // Final recipe. A proper manufactured explosive: forged (not raw scrap) iron for the
+            // casing, and Gun_Powder - a Chemistry-workbench product, not loot-findable - as filler,
+            // so this lands as a real mid-game craft rather than something makeable on day one. That
+            // also frees up Scrap Iron to be the nail bomb's cruder, unrefined pipe material below,
+            // instead of both explosives competing for the same resource.
+            AddRecipeSlot(grenade, "Grenade", 1, MatForgedIron, 2, "Iron Ingot - casing");
+            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 10, "Gun Powder - filler");
+            AddRecipeSlot(grenade, "Grenade", 3, MatDuctTape, 3, "Duct Tape - binding");
 
             var nailbomb = new ExplosiveDef
             {
@@ -395,9 +393,13 @@ namespace HumanHostExplosives
                     Config.Bind("Nailbomb", "FirstPersonOffsetY", -0.5f, "Absolute local-Y for the first-person viewmodel. Copied from the grenade.").Value,
                     Config.Bind("Nailbomb", "FirstPersonOffsetZ", 0.64f, "Absolute local-Z for the first-person viewmodel. Copied from the grenade.").Value),
             };
+            // Final recipe. Crude and hand-made on purpose, to contrast with the grenade above:
+            // Nitrate_Powder instead of Gun_Powder as filler, since Gun_Powder isn't loot-findable
+            // and requires its own separate Chemistry craft first - Nitrate_Powder is the cruder,
+            // less-refined precursor, needed in a larger amount to compensate for being weaker.
             AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 8, "Nails - the shrapnel");
-            AddRecipeSlot(nailbomb, "Nailbomb", 2, MatGunPowder, 2, "Gun Powder - filler");
-            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 1, "Duct Tape - binding");
+            AddRecipeSlot(nailbomb, "Nailbomb", 2, MatNitratePowder, 5, "Nitrate Powder - crude filler");
+            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 3, "Duct Tape - binding");
 
             var molotov = new ExplosiveDef
             {
@@ -450,6 +452,7 @@ namespace HumanHostExplosives
         internal const string MatGunPowder = "70f597caadb363e45b9bf02fa62072fa";   // Recipes/Chemistry/Gun_Powder
         internal const string MatNitratePowder = "cff973d2e35809f4aae157ddd4b502ec"; // Recipes/Chemistry/Nitrate_Powder
         internal const string MatScrapIron = "819d1d5e9f4684745913ea7b3442fa77";    // Recipes/Building/Scrap Iron
+        internal const string MatForgedIron = "7cdd1222de58be149815c0d6647bb151";   // Recipes/Ingot/Forged_Iron (Iron Ingot)
         internal const string MatScrapBrass = "ba7ca915ae348f54ca5ecd8d0f8561d2";   // Recipes/Building/Scrap_Brass
         internal const string MatNails = "961f0034fb6dde6478ff2931ec2e6932";        // Recipes/Building/Nails
         internal const string MatDuctTape = "e0233852a8ff00642ba77bfb8f46203a";     // Recipes/Tool/Duct_Tape
