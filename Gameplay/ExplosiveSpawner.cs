@@ -58,6 +58,11 @@ namespace HumanHostExplosives
                     grenade.MaxDamage = Plugin.ExplosionDamage.Value;
                     grenade.Thrower = thrower;
                     break;
+                case ExplosiveKind.Nailbomb:
+                    var nailbomb = go.AddComponent<NailbombProjectile>();
+                    nailbomb.MaxDamage = Plugin.NailbombDamage.Value;
+                    nailbomb.Thrower = thrower;
+                    break;
                 case ExplosiveKind.Molotov:
                     var molotov = go.AddComponent<MolotovProjectile>();
                     molotov.Thrower = thrower;

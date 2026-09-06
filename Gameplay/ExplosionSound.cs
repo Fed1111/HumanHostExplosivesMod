@@ -16,6 +16,7 @@ namespace HumanHostExplosives
     internal static class ExplosionSound
     {
         private static AudioClip _cachedClip;
+        private static AudioClip _cachedMetallicClip;
 
         // The clip is synthesized once and reused, so the cache has to be invalidated when the
         // echo settings change - otherwise tuning them via the F10 config reload would appear to
@@ -23,9 +24,14 @@ namespace HumanHostExplosives
         private static float _cachedEchoDelay = float.NaN;
         private static float _cachedEchoVolume = float.NaN;
 
-        internal static void Play(Vector3 position, float volume = 1f)
+        /// <summary>
+        /// Plays the blast. <paramref name="metallic"/> selects the nail-bomb variant: a shorter,
+        /// drier blast whose tail is a scatter of sharp high-frequency taps - fragments striking
+        /// hard surfaces - instead of the grenade's low concussive echo.
+        /// </summary>
+        internal static void Play(Vector3 position, float volume = 1f, bool metallic = false)
         {
-            AudioClip clip = GetOrCreateClip();
+            AudioClip clip = GetOrCreateClip(metallic);
             if (clip == null)
             {
                 return;
@@ -52,8 +58,13 @@ namespace HumanHostExplosives
             UnityEngine.Object.Destroy(go, clip.length + 0.5f);
         }
 
-        private static AudioClip GetOrCreateClip()
+        private static AudioClip GetOrCreateClip(bool metallic = false)
         {
+            if (metallic)
+            {
+                return _cachedMetallicClip ?? (_cachedMetallicClip = BuildMetallic());
+            }
+
             if (_cachedClip != null
                 && _cachedEchoDelay == Plugin.EchoDelay.Value
                 && _cachedEchoVolume == Plugin.EchoVolume.Value)
@@ -128,6 +139,67 @@ namespace HumanHostExplosives
             }
 
             return _cachedClip;
+        }
+
+        /// <summary>
+        /// Nail-bomb blast: the same waveform as the grenade, but with a louder and slightly later
+        /// echo. An earlier attempt used bright metallic pings to suggest nails striking surfaces;
+        /// in practice that read as breaking pottery rather than shrapnel, so this reuses the
+        /// grenade's blast and just leans on the echo instead.
+        /// </summary>
+        private static AudioClip BuildMetallic()
+        {
+            try
+            {
+                const int sampleRate = 44100;
+                float echoDelay = Mathf.Max(0f, Plugin.EchoDelay.Value) + Plugin.NailbombEchoExtraDelay.Value;
+                float echoLevel = Mathf.Max(0f, Plugin.EchoVolume.Value) * Plugin.NailbombEchoGain.Value;
+                float duration = 1.0f + echoDelay + 0.6f;
+                int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+                var samples = new float[sampleCount];
+
+                var rng = new System.Random(12345);
+                float brown = 0f;
+                int echoStart = Mathf.RoundToInt(sampleRate * echoDelay);
+                int echoStart2 = echoStart + Mathf.RoundToInt(sampleRate * 0.055f);
+                float lowpass = 0f;
+
+                for (int i = 0; i < sampleCount; i++)
+                {
+                    float t = i / (float)sampleRate;
+                    float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                    brown = (brown + 0.02f * white) / 1.02f;
+                    float sample = brown * 3.5f * Mathf.Exp(-t * 5f)
+                                 + (float)(rng.NextDouble() * 2.0 - 1.0) * Mathf.Exp(-t * 40f) * 0.6f;
+
+                    if (echoLevel > 0f)
+                    {
+                        float raw = 0f;
+                        if (i >= echoStart)
+                        {
+                            float te = (i - echoStart) / (float)sampleRate;
+                            raw += (float)(rng.NextDouble() * 2.0 - 1.0) * Mathf.Exp(-te * 22f);
+                        }
+                        if (i >= echoStart2)
+                        {
+                            float te2 = (i - echoStart2) / (float)sampleRate;
+                            raw += (float)(rng.NextDouble() * 2.0 - 1.0) * Mathf.Exp(-te2 * 30f) * 0.55f;
+                        }
+                        lowpass += (raw - lowpass) * 0.35f;
+                        sample += lowpass * echoLevel;
+                    }
+                    samples[i] = Mathf.Clamp(sample, -1f, 1f);
+                }
+
+                var clip = AudioClip.Create("HHX_NailbombSound", sampleCount, 1, sampleRate, false);
+                clip.SetData(samples, 0);
+                return clip;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("[Nailbomb] failed to synthesize sound: " + ex);
+                return null;
+            }
         }
     }
 }

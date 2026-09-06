@@ -7,7 +7,8 @@ namespace HumanHostExplosives.Registry
     internal enum ExplosiveKind
     {
         Grenade,
-        Molotov
+        Molotov,
+        Nailbomb
     }
 
     /// <summary>

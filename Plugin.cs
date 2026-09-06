@@ -19,6 +19,8 @@ namespace HumanHostExplosives
         // game's own catalog. Kept as constants (not config) since nothing needs to override them.
         private const string GrenadeIconGuid = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
         private const string GrenadeModelGuid = "0f9e8d7c6b5a4938271605f4e3d2c1b0";
+        private const string NailbombIconGuid = "5a6b7c8d9e0f1a2b3c4d5e6f70819202";
+        private const string NailbombModelGuid = "2029180716f5e4d3c2b1a0f9e8d7c6b5";
         private const string MolotovIconGuid = "11223344556677889900aabbccddeeff";
         private const string MolotovModelGuid = "ffeeddccbbaa00998877665544332211";
 
@@ -31,6 +33,9 @@ namespace HumanHostExplosives
         internal static ConfigEntry<bool> AllowSelfDamage;
         internal static ConfigEntry<float> SelfDamageMultiplier;
         internal static ConfigEntry<float> ExplosionVolume;
+        internal static ConfigEntry<bool> ExplosionsAttractZombies;
+        internal static ConfigEntry<float> GrenadeNoiseRadius;
+        internal static ConfigEntry<float> NailbombNoiseRadius;
         internal static ConfigEntry<float> EchoDelay;
         internal static ConfigEntry<float> EchoVolume;
 
@@ -51,6 +56,17 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> SwingSoundVolume;
         internal static ConfigEntry<float> SwingSoundNormalized;
 
+        internal static ConfigEntry<bool> EnableMolotov;
+        internal static ConfigEntry<bool> EnableNailbomb;
+        internal static ConfigEntry<float> NailbombDamage;
+        internal static ConfigEntry<float> NailbombRadius;
+        internal static ConfigEntry<int> NailbombFragments;
+        internal static ConfigEntry<float> NailbombFragmentDamage;
+        internal static ConfigEntry<float> NailbombBlockDamage;
+        internal static ConfigEntry<bool> NailbombCausesBleed;
+        internal static ConfigEntry<float> NailbombEchoExtraDelay;
+        internal static ConfigEntry<float> NailbombEchoGain;
+
         internal static ConfigEntry<bool> EnableLootSpawning;
         internal static ConfigEntry<string> LootTags;
 
@@ -59,6 +75,7 @@ namespace HumanHostExplosives
 
         internal static ConfigEntry<bool> EnableDiagnostics;
         internal static ConfigEntry<KeyCode> DebugThrowGrenadeKey;
+        internal static ConfigEntry<string> DebugThrowKind;
         internal static ConfigEntry<KeyCode> ReloadConfigKey;
         internal static ConfigEntry<bool> TraceHandBone;
 
@@ -90,8 +107,21 @@ namespace HumanHostExplosives
                 "Explosives", "ExplosionVolume", 4f,
                 "AudioSource volume for the detonation sound. Unity allows values above 1 (amplification beyond unity gain) - the synthesized waveform itself is already near max amplitude, so getting louder means turning this up, not the waveform.");
 
+            ExplosionsAttractZombies = Config.Bind(
+                "Explosives", "ExplosionsAttractZombies", true,
+                "Explosions draw zombies, the same way gunfire and falling trees do - it uses the game's own noise " +
+                "event (Smash_Fallen_Manager._attctZombies), so hearing range interacts with the AI exactly as vanilla " +
+                "noise does. Zombies path to the blast position, not to you, so a thrown explosive works as a distraction.");
+            GrenadeNoiseRadius = Config.Bind(
+                "Explosives", "GrenadeNoiseRadius", 60f,
+                "How far (meters) a grenade blast can be heard by zombies. Well beyond its 15m damage radius - a " +
+                "detonation is far louder than it is lethal.");
+            NailbombNoiseRadius = Config.Bind(
+                "Nailbomb", "NailbombNoiseRadius", 45f,
+                "How far (meters) a nail bomb can be heard. Smaller charge than a grenade, so it carries less far.");
+
             EchoDelay = Config.Bind(
-                "Explosives", "EchoDelay", 0.18f,
+                "Explosives", "EchoDelay", 0.26f,
                 "Seconds after the main blast before the returning crack (slap-back off distant geometry) is heard. " +
                 "Roughly distance/343m-s, so 0.35 reads as surfaces about 60m away. Set 0 with EchoVolume 0 to disable.");
             EchoVolume = Config.Bind(
@@ -164,14 +194,62 @@ namespace HumanHostExplosives
                 "Point in the clip (0-1) the whoosh plays. Slightly before ReleaseNormalized so it leads the release, " +
                 "matching how vanilla fires it at the start of a swing rather than on contact.");
 
+            EnableMolotov = Config.Bind(
+                "Molotov", "EnableMolotov", false,
+                "Register the Molotov. OFF by default: it has no art, and registering an item whose invented " +
+                "Addressables GUID never resolves makes the engine log 'Invalid path in AssetBundleProvider' - one of " +
+                "the two strings the game treats as proof that Steam corrupted the install, which then latches its " +
+                "corruption dialog on for the rest of the session. Turn on only once it has a model.");
+            EnableNailbomb = Config.Bind(
+                "Nailbomb", "EnableNailbomb", false,
+                "Register the nail bomb. OFF by default because it currently has no art of its own - drop " +
+                "Nailbomb/nailbomb.obj, nailbomb.png and nailbomb_icon.png next to the DLL and turn this on.");
+            NailbombDamage = Config.Bind(
+                "Nailbomb", "NailbombDamage", 200f,
+                "Total shrapnel damage against creatures and players, split across NailbombFragments. Far below the " +
+                "grenade's, but it lands concentrated on whatever is actually exposed rather than spread over an area.");
+            NailbombRadius = Config.Bind(
+                "Nailbomb", "NailbombRadius", 9f,
+                "How far fragments travel. Larger than the grenade's blast radius - fragments carry - but they only " +
+                "hurt what they can actually reach in a straight line, so cover protects.");
+            NailbombFragments = Config.Bind(
+                "Nailbomb", "NailbombFragments", 48,
+                "Number of shrapnel rays cast on detonation, spread evenly over a sphere. Higher is smoother and " +
+                "slightly more expensive; 48 is a good balance.");
+            NailbombFragmentDamage = Config.Bind(
+                "Nailbomb", "NailbombFragmentDamage", 1f,
+                "Multiplier on each fragment's share of NailbombDamage. Raise to make close range brutal without " +
+                "widening the effective radius.");
+            NailbombBlockDamage = Config.Bind(
+                "Nailbomb", "NailbombBlockDamage", 10f,
+                "Flat damage to buildable structures - an absolute value, NOT a fraction of BuildableDamage. Token by " +
+                "design: nails do not bring down walls, which is what keeps the nail bomb distinct from the grenade " +
+                "rather than a straight upgrade to it.");
+            NailbombCausesBleed = Config.Bind(
+                "Nailbomb", "NailbombCausesBleed", true,
+                "Apply the game's Bleeding debuff when shrapnel hits the player. NOTE: the game's bleed system " +
+                "(Skill_Mgr.Start_Bleeding) is player-only - it stacks a player buff and shows a player HUD icon - so " +
+                "this cannot be applied to zombies or NPCs. There is no per-creature status system to hook.");
+
+            NailbombEchoExtraDelay = Config.Bind(
+                "Nailbomb", "NailbombEchoExtraDelay", 0.10f,
+                "Extra seconds on top of EchoDelay for the nail bomb's echo, so its tail lands a little later than the " +
+                "grenade's.");
+            NailbombEchoGain = Config.Bind(
+                "Nailbomb", "NailbombEchoGain", 1.7f,
+                "Multiplier on EchoVolume for the nail bomb's echo - louder than the grenade's.");
+
             EnableLootSpawning = Config.Bind(
                 "Loot", "EnableLootSpawning", true,
                 "Let explosives spawn in world containers. This adds our item to an EXISTING loot tag rather than " +
                 "creating a new spawn rate, so it inherits that tag's rarity and only appears in containers that " +
                 "already roll it - and it automatically respects your loot-rate setting and looting skill.");
             LootTags = Config.Bind(
-                "Loot", "LootTags", "Military,Weapon,Ammo",
-                "Comma-separated loot tags to add explosives to. Matched case-insensitively as substrings. Open any " +
+                "Loot", "LootTags", "军用装备,弹药",
+                "Comma-separated loot tags to add explosives to. NOTE: the game is Chinese-developed and these tags are " +
+                "Chinese strings - the defaults are 军用装备 (Military Equipment) and 弹药 (Ammunition). " +
+                "Matched case-insensitively as substrings, so use full tags: 军用装备 rather than 用装备, which would also " +
+                "match 民用装备 (civilian) and 警用装备 (police). Open any " +
                 "container once with the mod loaded and the log lists every available tag ('[Loot] available loot " +
                 "tags: ...') - set this to the ones that fit.");
 
@@ -188,12 +266,19 @@ namespace HumanHostExplosives
                 "Logs extra detail (Icon_Info fields, craft window tab layout) needed to fill in the Registry/* and per-item recipe config above. Safe to leave on; turn off once configured.");
             DebugThrowGrenadeKey = Config.Bind(
                 "Debug", "ThrowGrenadeKey", KeyCode.G,
-                "Press this key in-game to throw a grenade directly, bypassing the inventory/equip system - for testing ExplosionDamage/GrenadeProjectile independent of item registration.");
+                "Press this key in-game to throw the explosive named by ThrowKind directly, bypassing the inventory/equip " +
+                "system - for testing damage/projectile behaviour independent of item registration and materials.");
             TraceHandBone = Config.Bind(
                 "Debug", "TraceHandBone", false,
                 "Log the right hand bone's position through each throw, in character space, ~12 lines per throw. This is " +
                 "how ReleaseNormalized was measured: find the sample where up/fwd peak and use its n value. Separate " +
                 "from EnableDiagnostics so the general logs can stay on without this.");
+            DebugThrowKind = Config.Bind(
+                "Debug", "ThrowKind", "Nailbomb",
+                "Which explosive ThrowGrenadeKey throws: Grenade, Nailbomb or Molotov. Bypasses inventory, crafting and " +
+                "material requirements entirely, so it is the way to test a new explosive before its materials are " +
+                "obtainable. Kept as one key rather than one per item because spare keys are scarce - H is the game's " +
+                "camera toggle, for instance.");
             ReloadConfigKey = Config.Bind(
                 "Debug", "ReloadConfigKey", KeyCode.F10,
                 "Press this key in-game to re-read this .cfg from disk. The game has no hot reload, so without it every " +
@@ -273,6 +358,47 @@ namespace HumanHostExplosives
             AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 3, "Gun Powder - filler");
             AddRecipeSlot(grenade, "Grenade", 3, MatDuctTape, 1, "Duct Tape - binding");
 
+            var nailbomb = new ExplosiveDef
+            {
+                Kind = ExplosiveKind.Nailbomb,
+                Tag = "HHX_Nailbomb",
+                IconGuid = NailbombIconGuid,
+                ModelGuid = NailbombModelGuid,
+                ObjFileName = "Nailbomb/nailbomb.obj",
+                PngFileName = "Nailbomb/nailbomb.png",
+                IconPngFileName = "Nailbomb/nailbomb_icon.png",
+                MaxStack = 5,
+                TooltipName = "Nail Bomb",
+                TooltipType = "Explosive",
+                TooltipInstruction = "A pipe packed with powder and nails, taped together by hand. Equip and press LMB to throw; sprays shrapnel on a short fuse. Devastating in the open, useless against cover.",
+                // Hand-crafted, no workbench: it is improvised junk taped together in the field,
+                // which is also what separates it from the grenade (GunWorkbench). HandMade is the
+                // player's own craft window - still a Craft_Items component, so recipe injection
+                // works there unchanged.
+                WorkbenchTypeName = Config.Bind("Nailbomb", "WorkbenchType", "HandMade",
+                    "Craft_Mgr.WorkbenchType this recipe appears under. HandMade = craftable from the player's own " +
+                    "crafting menu with no workbench required.").Value,
+                TabIndex = Config.Bind("Nailbomb", "CraftTabIndex", 0,
+                    "Which tab (0-based) of that menu. HandMade's tab layout is logged by CraftDiag when you open the " +
+                    "player craft window - adjust if 0 is not the right one.").Value,
+                CraftSeconds = Config.Bind("Nailbomb", "CraftSeconds", 12f, "Crafting time in seconds. Slightly quicker than a grenade - it is a cruder device.").Value,
+                // Hand and viewmodel placement are copied verbatim from the grenade, which was
+                // tuned empirically over many relaunches. Keep the nailbomb model the same size as
+                // the grenade and these stay correct; if the model's scale differs these need
+                // re-tuning one axis at a time, and the axes do NOT behave intuitively.
+                HandOffset = new Vector3(
+                    Config.Bind("Nailbomb", "HandOffsetX", -0.01f, "Absolute local-X target for the held model's hand-bone position. Copied from the grenade's tuned value.").Value,
+                    Config.Bind("Nailbomb", "HandOffsetY", 0.12f, "Absolute local-Y target. Copied from the grenade's tuned value.").Value,
+                    Config.Bind("Nailbomb", "HandOffsetZ", 0.03f, "Absolute local-Z target. Copied from the grenade's tuned value.").Value),
+                FirstPersonOffset = new Vector3(
+                    Config.Bind("Nailbomb", "FirstPersonOffsetX", 0.05f, "Absolute local-X for the first-person viewmodel. Copied from the grenade.").Value,
+                    Config.Bind("Nailbomb", "FirstPersonOffsetY", -0.5f, "Absolute local-Y for the first-person viewmodel. Copied from the grenade.").Value,
+                    Config.Bind("Nailbomb", "FirstPersonOffsetZ", 0.64f, "Absolute local-Z for the first-person viewmodel. Copied from the grenade.").Value),
+            };
+            AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 8, "Nails - the shrapnel");
+            AddRecipeSlot(nailbomb, "Nailbomb", 2, MatGunPowder, 2, "Gun Powder - filler");
+            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 1, "Duct Tape - binding");
+
             var molotov = new ExplosiveDef
             {
                 Kind = ExplosiveKind.Molotov,
@@ -303,7 +429,18 @@ namespace HumanHostExplosives
             AddRecipeSlot(molotov, "Molotov", 2);
             AddRecipeSlot(molotov, "Molotov", 3);
 
-            return new List<ExplosiveDef> { grenade, molotov };
+            var defs = new List<ExplosiveDef> { grenade };
+            if (EnableMolotov.Value)
+            {
+                defs.Add(molotov);
+            }
+            // Gated: the nailbomb has no art of its own yet, and registering an item whose model
+            // cannot load leaves a broken entry in the crafting UI.
+            if (EnableNailbomb.Value)
+            {
+                defs.Add(nailbomb);
+            }
+            return defs;
         }
 
         // Real material icon GUIDs, decoded straight out of the game's Addressables catalog
@@ -346,6 +483,38 @@ namespace HumanHostExplosives
             _toastUntil = Time.unscaledTime + seconds;
         }
 
+        /// <summary>
+        /// Throws one of our explosives with no inventory, crafting or material requirement.
+        /// Testing-only path; it skips the equip/animation flow, so it exercises the projectile,
+        /// damage, model and sound but not the hand-held or throw-animation behaviour.
+        /// </summary>
+        private void DebugThrow(ExplosiveKind kind)
+        {
+            ExplosiveDef def = Defs.Find(d => d.Kind == kind);
+            if (def == null)
+            {
+                Log.LogWarning($"[Debug] no registered def for {kind} (is it enabled in config?).");
+                Toast($"{kind}: not registered");
+                return;
+            }
+            if (def.RuntimeMesh == null || def.RuntimeMaterial == null)
+            {
+                Log.LogWarning($"[Debug] {kind} has no loaded mesh/material - check its art files.");
+                Toast($"{kind}: art failed to load");
+                return;
+            }
+
+            Transform camTrans = CamController.ins != null ? CamController.ins._mainCamTrans : null;
+            if (camTrans == null)
+            {
+                Log.LogWarning("[Debug] no camera; cannot throw.");
+                return;
+            }
+
+            ExplosiveSpawner.Throw(def, camTrans, Player_Input.ins, MaxThrowSpeed.Value * 0.6f);
+            Toast($"thrown: {kind}");
+        }
+
         private void OnGUI()
         {
             if (string.IsNullOrEmpty(_toastText) || Time.unscaledTime > _toastUntil)
@@ -383,6 +552,10 @@ namespace HumanHostExplosives
             {
                 Config.Reload();
                 SwingSound.ResetCache();
+                // Loot injection latches after its first run, so without this a LootTags change
+                // would not take effect until a relaunch. Re-injection is idempotent (it checks
+                // for our GUID before appending), so this cannot stack duplicate spawn weight.
+                Registry.LootTableInjector.Reset();
                 Toast("Config reloaded\n" +
                       $"speed {ThrowAnimationSpeed.Value:F2}   release {ReleaseNormalized.Value:F2}\n" +
                       $"origin  R {ThrowOriginRight.Value:F2}   U {ThrowOriginUp.Value:F2}   F {ThrowOriginForward.Value:F2}\n" +
@@ -396,14 +569,17 @@ namespace HumanHostExplosives
 
             if (Input.GetKeyDown(DebugThrowGrenadeKey.Value))
             {
-                ExplosiveDef grenade = Defs.Find(d => d.Kind == ExplosiveKind.Grenade);
-                Transform camTrans = CamController.ins != null ? CamController.ins._mainCamTrans : null;
-                if (camTrans == null)
+                ExplosiveKind kind = ExplosiveKind.Nailbomb;
+                try
                 {
-                    Log.LogWarning("No camera found; cannot spawn test grenade.");
-                    return;
+                    kind = (ExplosiveKind)System.Enum.Parse(
+                        typeof(ExplosiveKind), DebugThrowKind.Value, ignoreCase: true);
                 }
-                ExplosiveSpawner.Throw(grenade, camTrans, Player_Input.ins);
+                catch (System.Exception)
+                {
+                    Log.LogWarning($"[Debug] ThrowKind '{DebugThrowKind.Value}' is not a known kind; using Nailbomb.");
+                }
+                DebugThrow(kind);
             }
         }
     }

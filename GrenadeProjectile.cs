@@ -47,6 +47,15 @@ namespace HumanHostExplosives
 
             try
             {
+                NoiseAttractor.Emit(transform.position, Plugin.GrenadeNoiseRadius.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError($"[Noise] Emit threw: {ex}");
+            }
+
+            try
+            {
                 ExplosionVisual.Spawn(transform.position, radius);
             }
             catch (System.Exception ex)

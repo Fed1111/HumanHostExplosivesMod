@@ -155,7 +155,12 @@
          the mod logs once and throws instantly, so a missing bundle must not fail the build. -->
     <ItemGroup>
       <AnimAssets Include="$(MSBuildProjectDirectory)\Assets\Anim\**\*.*" />
+      <NailbombAssets Include="$(MSBuildProjectDirectory)\Assets\Nailbomb\**\*.*" />
     </ItemGroup>
+    <!-- Nailbomb art is optional - the item is gated off in config until it exists. -->
+    <Copy SourceFiles="@(NailbombAssets)"
+          DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Nailbomb"
+          ContinueOnError="true" />
     <Copy SourceFiles="@(AnimAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Assets\Anim"
           ContinueOnError="true" />
