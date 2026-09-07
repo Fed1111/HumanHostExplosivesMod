@@ -355,7 +355,7 @@ namespace HumanHostExplosives
             // also frees up Scrap Iron to be the nail bomb's cruder, unrefined pipe material below,
             // instead of both explosives competing for the same resource.
             AddRecipeSlot(grenade, "Grenade", 1, MatForgedIron, 2, "Iron Ingot - casing");
-            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 10, "Gun Powder - filler");
+            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 5, "Gun Powder - filler");
             AddRecipeSlot(grenade, "Grenade", 3, MatDuctTape, 3, "Duct Tape - binding");
 
             var nailbomb = new ExplosiveDef
@@ -399,7 +399,7 @@ namespace HumanHostExplosives
             // Nitrate_Powder instead of Gun_Powder as filler, since Gun_Powder isn't loot-findable
             // and requires its own separate Chemistry craft first - Nitrate_Powder is the cruder,
             // less-refined precursor, needed in a larger amount to compensate for being weaker.
-            AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 8, "Nails - the shrapnel");
+            AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 5, "Nails - the shrapnel");
             AddRecipeSlot(nailbomb, "Nailbomb", 2, MatNitratePowder, 5, "Nitrate Powder - crude filler");
             AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 3, "Duct Tape - binding");
 
