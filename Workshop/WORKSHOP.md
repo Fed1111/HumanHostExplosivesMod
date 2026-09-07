@@ -8,6 +8,11 @@ yours; everything up to it is prepared here.
 App ID **2393970**. Human Host publishes mods through Steam Workshop and installs them itself;
 `Human Host_Data/ModBrowser/Data/installed_mods.json` maps published-file IDs to installed files.
 
+`Workshop/upload/` is the ready-to-publish item root. Build it with **`dotnet build -c Release`**
+and copy `bin/Release/net472/HumanHostExplosives.dll` in - Release is optimized and emits no
+`.pdb`, so no debug symbols ship. BepInEx loads a Debug build perfectly well, so this is about
+tidiness rather than correctness.
+
 `Workshop/upload/` is the ready-to-publish item root:
 
 ```

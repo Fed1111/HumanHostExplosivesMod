@@ -14,6 +14,16 @@
     <BepInExDir>$(GameDir)\BepInEx</BepInExDir>
   </PropertyGroup>
 
+  <!-- Ship builds: optimized, and no .pdb alongside the DLL. BepInEx will happily load a Debug
+       build, so this is about not shipping symbols and unoptimized IL rather than correctness.
+       Build with:  dotnet build -c Release
+       Day-to-day development still uses the default Debug configuration. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="BepInEx">
       <HintPath>$(BepInExDir)\core\BepInEx.dll</HintPath>
