@@ -2,6 +2,9 @@
 
 A BepInEx 5 plugin for [Human Host](https://store.steampowered.com/) that adds explosives.
 
+A second, independent plugin lives in [`FarmAndCookMod/`](FarmAndCookMod/) — farming and
+cooking, built and configured separately.
+
 ## Requirements
 
 - Human Host (Steam)
