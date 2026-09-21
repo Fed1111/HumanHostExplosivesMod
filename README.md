@@ -34,7 +34,7 @@ game's Addressables catalog, which isn't dumped anywhere. So, once, with the gam
    ```
 3. Copy `iconGUID` into `Registry.TemplateIconGuid` and `modelRefGuid` into
    `Registry.TemplateModelGuid` in the config file
-   (`BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg`).
+   (`BepInEx/config/com.nf.humanhostexplosives.cfg`).
 4. Restart, or let the mod's retry loop pick it up (it retries for ~30s after
    `Item_Slot_Mgr` wakes).
 
@@ -98,7 +98,7 @@ log spam.
 
 ## Configuration
 
-Generated in `BepInEx/config/com.nathanfeddema.humanhostexplosives.cfg` after the first run:
+Generated in `BepInEx/config/com.nf.humanhostexplosives.cfg` after the first run:
 
 - `[Explosives]` `ExplosionRadius` (default `5`), `ExplosionDamage` (default `120`) — grenade only;
   Molotov damage/radius/duration are constants on `MolotovProjectile` for now.

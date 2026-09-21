@@ -95,6 +95,15 @@ namespace HumanHostExplosives
                 int echoStart2 = echoStart + Mathf.RoundToInt(sampleRate * 0.055f);
                 float lowpass = 0f;
 
+                // The exponential envelopes above decay the AUDIBLE content well before the buffer
+                // actually ends, but never reach an exact zero - and brown/raw are fresh random
+                // values every sample, not something that settles toward a fixed number. Without
+                // this, the buffer just stops mid-jitter: a step discontinuity, heard as a click/
+                // crackle right at the end regardless of how quiet that tail nominally was. Ramping
+                // the last stretch down to a guaranteed exact 0 at the final sample removes that
+                // discontinuity outright.
+                int fadeSamples = Mathf.RoundToInt(sampleRate * 0.03f);
+
                 for (int i = 0; i < sampleCount; i++)
                 {
                     float t = i / (float)sampleRate;
@@ -123,6 +132,12 @@ namespace HumanHostExplosives
                         }
                         lowpass += (raw - lowpass) * 0.35f;
                         sample += lowpass * echoLevel;
+                    }
+
+                    int samplesFromEnd = sampleCount - 1 - i;
+                    if (samplesFromEnd < fadeSamples)
+                    {
+                        sample *= samplesFromEnd / (float)fadeSamples;
                     }
 
                     samples[i] = Mathf.Clamp(sample, -1f, 1f);
@@ -163,6 +178,9 @@ namespace HumanHostExplosives
                 int echoStart = Mathf.RoundToInt(sampleRate * echoDelay);
                 int echoStart2 = echoStart + Mathf.RoundToInt(sampleRate * 0.055f);
                 float lowpass = 0f;
+                // See the matching comment in GetOrCreateClip - without this the buffer stops
+                // mid-jitter and the discontinuity reads as a click/crackle at the very end.
+                int fadeSamples = Mathf.RoundToInt(sampleRate * 0.03f);
 
                 for (int i = 0; i < sampleCount; i++)
                 {
@@ -188,6 +206,13 @@ namespace HumanHostExplosives
                         lowpass += (raw - lowpass) * 0.35f;
                         sample += lowpass * echoLevel;
                     }
+
+                    int samplesFromEnd = sampleCount - 1 - i;
+                    if (samplesFromEnd < fadeSamples)
+                    {
+                        sample *= samplesFromEnd / (float)fadeSamples;
+                    }
+
                     samples[i] = Mathf.Clamp(sample, -1f, 1f);
                 }
 

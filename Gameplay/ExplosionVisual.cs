@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace HumanHostExplosives
 {
@@ -8,21 +9,95 @@ namespace HumanHostExplosives
     /// damage and despawned with no visual feedback at all - this is the same runtime-
     /// ParticleSystem technique FirePool uses for its lingering fire effect, just three of them
     /// layered together instead of one.
+    ///
+    /// Fireball/smoke use real textures borrowed the same way SwingSound borrows a vanilla sound
+    /// set and ExplosiveDef borrows a template's material - live references to the base game's own
+    /// already-loaded assets, never extracted/shipped as files. Source is WB_Campfire.prefab (the
+    /// player-placeable campfire), whose fx_fire/fx_smoke children use real artist-authored HDRP
+    /// materials (Fire_Mat with an 8x4 animated flame sprite sheet, CampFire_Black_Smoke). Per
+    /// MOD_CONVENTIONS.md #2, cloning a real material this way is the only reliable way to get a
+    /// correctly-configured HDRP material from script - building one from scratch renders grey/
+    /// garbled even with every property set by hand.
     /// </summary>
     internal static class ExplosionVisual
     {
+        private const string CampfireGuid = "bc2ff5fe13fe2a54e8a2675e76c2c406"; // WB_Campfire.prefab
+
+        private static Material _realFireMaterial;
+        private static Material _realSmokeMaterial;
+        private static bool _fxMaterialsLoadAttempted;
+
         private static Mesh _cubeMesh;
         private static Mesh _sphereMesh;
 
-        internal static void Spawn(Vector3 position, float radius)
+        /// <summary>
+        /// Loads WB_Campfire once and clones its fire/smoke ParticleSystemRenderer materials -
+        /// never Instantiate()'d into the scene (that would also spawn its full crafting UI/
+        /// Special_Workbench), just read directly off the loaded prefab asset, which is enough to
+        /// get at sharedMaterial. Best-effort: on any failure, both stay null and the callers fall
+        /// back to the original flat-colored Sprites/Default look.
+        /// </summary>
+        private static void EnsureRealFxMaterials()
         {
+            if (_fxMaterialsLoadAttempted)
+            {
+                return;
+            }
+            _fxMaterialsLoadAttempted = true;
+
+            try
+            {
+                GameObject campfire = Addressables.LoadAssetAsync<GameObject>(CampfireGuid).WaitForCompletion();
+                if (campfire == null)
+                {
+                    Plugin.Log.LogWarning("[Explosion] WB_Campfire failed to load; fireball/smoke will use the flat-colored fallback.");
+                    return;
+                }
+
+                foreach (ParticleSystemRenderer renderer in campfire.GetComponentsInChildren<ParticleSystemRenderer>(includeInactive: true))
+                {
+                    if (renderer.sharedMaterial == null)
+                    {
+                        continue;
+                    }
+                    if (_realFireMaterial == null && renderer.gameObject.name == "fx_fire")
+                    {
+                        _realFireMaterial = new Material(renderer.sharedMaterial);
+                    }
+                    else if (_realSmokeMaterial == null && renderer.gameObject.name == "fx_smoke")
+                    {
+                        _realSmokeMaterial = new Material(renderer.sharedMaterial);
+                    }
+                }
+
+                if (_realFireMaterial == null || _realSmokeMaterial == null)
+                {
+                    Plugin.Log.LogWarning($"[Explosion] borrowed fire/smoke materials incomplete (fire={_realFireMaterial != null}, smoke={_realSmokeMaterial != null}) - falling back to flat color for whichever is missing.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Explosion] failed to borrow WB_Campfire's fire/smoke materials: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// flashScale/particulateScale let callers weight the same four-layer effect differently -
+        /// the Nailbomb wants a smaller but sharper "crack" (Flash+Fireball emphasized, small
+        /// radius), the Grenade wants a bigger, dirtier "boom" (Debris+Smoke emphasized). 1f each
+        /// reproduces the original, unweighted look.
+        /// </summary>
+        internal static void Spawn(Vector3 position, float radius, float flashScale = 1f, float particulateScale = 1f)
+        {
+            EnsureRealFxMaterials();
+
             var root = new GameObject("HumanHostExplosives_ExplosionVisual");
             root.transform.position = position;
 
-            SpawnFlash(root.transform, radius);
-            SpawnFireball(root.transform, radius);
-            SpawnDebris(root.transform, radius);
-            SpawnSmoke(root.transform, radius);
+            SpawnFlash(root.transform, radius, flashScale);
+            SpawnFireball(root.transform, radius, flashScale);
+            SpawnDebris(root.transform, radius, particulateScale);
+            SpawnSmoke(root.transform, radius, particulateScale);
 
             Object.Destroy(root, 4f);
         }
@@ -30,14 +105,14 @@ namespace HumanHostExplosives
         // Billboard particles (Flash/Fireball/Smoke below) are flat camera-facing quads - more of
         // them is still just more flat quads, no actual dimensionality. Debris uses real 3D mesh
         // particles instead (small tumbling cubes) for actual faceted/chunky depth.
-        private static void SpawnDebris(Transform parent, float radius)
+        private static void SpawnDebris(Transform parent, float radius, float particulateScale)
         {
-            ParticleSystem ps = CreateBurstSystem(parent, "Debris", 35);
+            ParticleSystem ps = CreateBurstSystem(parent, "Debris", Mathf.RoundToInt(35 * particulateScale));
 
             ParticleSystem.MainModule main = ps.main;
             main.startColor = new Color(0.35f, 0.28f, 0.2f, 1f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 10f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.25f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.25f * Mathf.Sqrt(particulateScale));
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.8f, 1.6f);
             main.gravityModifier = 1.2f;
 
@@ -80,14 +155,14 @@ namespace HumanHostExplosives
             return _cubeMesh;
         }
 
-        private static void SpawnFlash(Transform parent, float radius)
+        private static void SpawnFlash(Transform parent, float radius, float flashScale)
         {
-            ParticleSystem ps = CreateBurstSystem(parent, "Flash", 45);
+            ParticleSystem ps = CreateBurstSystem(parent, "Flash", Mathf.RoundToInt(45 * flashScale));
 
             ParticleSystem.MainModule main = ps.main;
             main.startColor = new Color(1f, 0.98f, 0.85f, 1f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(6f, 12f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.6f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.6f * Mathf.Sqrt(flashScale));
             main.startLifetime = 0.15f;
 
             ParticleSystem.ShapeModule shape = ps.shape;
@@ -98,14 +173,14 @@ namespace HumanHostExplosives
             ps.Play();
         }
 
-        private static void SpawnFireball(Transform parent, float radius)
+        private static void SpawnFireball(Transform parent, float radius, float flashScale)
         {
-            ParticleSystem ps = CreateBurstSystem(parent, "Fireball", 160);
+            ParticleSystem ps = CreateBurstSystem(parent, "Fireball", Mathf.RoundToInt(160 * flashScale));
 
             ParticleSystem.MainModule main = ps.main;
             main.startColor = new Color(1f, 0.5f, 0.1f, 1f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 12f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 1.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 1.5f * Mathf.Sqrt(flashScale));
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.7f);
 
             ParticleSystem.ColorOverLifetimeModule colorOverLifetime = ps.colorOverLifetime;
@@ -130,12 +205,32 @@ namespace HumanHostExplosives
             shape.shapeType = ParticleSystemShapeType.Sphere;
             shape.radius = Mathf.Max(0.2f, radius * 0.3f);
 
-            // Was pure Billboard (flat camera-facing quads) - fine for smoke/flash but read as
-            // flat for a "fireball" specifically. Mesh-mode spheres give it real volume/faceting.
-            ApplyUnlitMaterial(ps);
             var renderer = ps.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode = ParticleSystemRenderMode.Mesh;
-            renderer.mesh = GetSphereMesh();
+            if (_realFireMaterial != null)
+            {
+                // The real flame sprite sheet is a flat silhouette shape (see WB_Campfire's own
+                // fx_fire) - it wants Billboard, not the Mesh-sphere mode below, which was only
+                // there to fake volume/faceting in place of an actual flame shape.
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
+                renderer.material = _realFireMaterial;
+
+                ParticleSystem.TextureSheetAnimationModule sheet = ps.textureSheetAnimation;
+                sheet.enabled = true;
+                sheet.numTilesX = 8;
+                sheet.numTilesY = 4;
+                sheet.animation = ParticleSystemAnimationType.WholeSheet;
+                sheet.frameOverTime = new ParticleSystem.MinMaxCurve(1f);
+                sheet.cycleCount = 1;
+            }
+            else
+            {
+                // Was pure Billboard (flat camera-facing quads) - fine for smoke/flash but read as
+                // flat for a "fireball" specifically without a real texture. Mesh-mode spheres give
+                // it fake volume/faceting instead, as a fallback if the real material didn't load.
+                ApplyUnlitMaterial(ps);
+                renderer.renderMode = ParticleSystemRenderMode.Mesh;
+                renderer.mesh = GetSphereMesh();
+            }
 
             ps.Play();
         }
@@ -152,14 +247,14 @@ namespace HumanHostExplosives
             return _sphereMesh;
         }
 
-        private static void SpawnSmoke(Transform parent, float radius)
+        private static void SpawnSmoke(Transform parent, float radius, float particulateScale)
         {
-            ParticleSystem ps = CreateBurstSystem(parent, "Smoke", 50);
+            ParticleSystem ps = CreateBurstSystem(parent, "Smoke", Mathf.RoundToInt(50 * particulateScale));
 
             ParticleSystem.MainModule main = ps.main;
             main.startColor = new Color(0.25f, 0.24f, 0.22f, 0.7f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(1f, 3f);
-            main.startSize = new ParticleSystem.MinMaxCurve(1f, 2.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(1f, 2.5f * Mathf.Sqrt(particulateScale));
             main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 3f);
             main.gravityModifier = -0.05f; // drifts gently upward
 
@@ -180,7 +275,16 @@ namespace HumanHostExplosives
             shape.shapeType = ParticleSystemShapeType.Sphere;
             shape.radius = Mathf.Max(0.2f, radius * 0.25f);
 
-            ApplyUnlitMaterial(ps);
+            if (_realSmokeMaterial != null)
+            {
+                var smokeRenderer = ps.GetComponent<ParticleSystemRenderer>();
+                smokeRenderer.renderMode = ParticleSystemRenderMode.Billboard;
+                smokeRenderer.material = _realSmokeMaterial;
+            }
+            else
+            {
+                ApplyUnlitMaterial(ps);
+            }
             ps.Play();
         }
 

@@ -10,6 +10,12 @@ namespace HumanHostExplosives
         /// Applies falloff damage to every living creature within radius of center, using the
         /// game's own trap/fall damage pipeline (Creature_Mgr + Smash_Fallen_Manager.Minus_Char_HP).
         /// Returns the number of creatures hit.
+        ///
+        /// requireLineOfSight (default off, so nothing calling this without it changes behavior):
+        /// when on, each victim's damage is additionally scaled by an exposure fraction from the
+        /// same 3-sample-height raycast technique NailbombProjectile.FireShrapnel uses - a fully
+        /// covered target (0/3 clear) takes nothing, partial cover gives partial damage. This is
+        /// what makes the grenade respect cover the same way the nail bomb does.
         /// </summary>
         internal static int Apply(
             Vector3 center,
@@ -17,7 +23,8 @@ namespace HumanHostExplosives
             float maxDamage,
             C_Controller_Base attacker,
             float hitFlyForce = 1f,
-            float hitReact = 0.8f)
+            float hitReact = 0.8f,
+            bool requireLineOfSight = false)
         {
             Creature_Mgr creatureMgr = Creature_Mgr.ins;
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
@@ -67,13 +74,23 @@ namespace HumanHostExplosives
                     continue;
                 }
 
+                float exposure = 1f;
+                if (requireLineOfSight)
+                {
+                    exposure = ComputeExposure(creatureMgr, ctrl, center);
+                    if (exposure <= 0f)
+                    {
+                        continue;   // fully behind cover - nothing reaches this target
+                    }
+                }
+
                 Vector3 hitDirect = targetPos - center;
                 hitDirect = hitDirect.sqrMagnitude > 0.0001f ? hitDirect.normalized : Vector3.up;
 
                 // Grenades are risky to use at close range in real life too - self-damage uses
                 // the same falloff as everyone else, just scaled down separately so it can be
                 // tuned (or turned off) without affecting damage to others.
-                float damage = maxDamage * falloff * (isSelf ? Plugin.SelfDamageMultiplier.Value : 1f);
+                float damage = maxDamage * falloff * exposure * (isSelf ? Plugin.SelfDamageMultiplier.Value : 1f);
                 BodyColliderScript bodyScript = ctrl._ragDollMgr ? ctrl._ragDollMgr._headBodyScript : null;
 
                 smashMgr.Minus_Char_HP(
@@ -93,7 +110,13 @@ namespace HumanHostExplosives
                     getEXP: true);
 
                 hits++;
-                Plugin.Log.LogInfo($"[Explosion] Hit {ctrl.name} at {dist:F1}m (falloff={falloff:F2}) for {damage:F0} dmg.");
+                // MaxHP logged deliberately (not diagnostics-gated) - zombie/creature HP is data,
+                // not something visible in decompiled code, and varies unknown amounts by zone/tier.
+                // This is the fastest way to get real numbers to tune ExplosionDamage/NailbombDamage
+                // against: play a few zones, grep LogOutput.log for "[Explosion] Hit" afterward.
+                Plugin.Log.LogInfo(
+                    $"[Explosion] Hit {ctrl.name} (MaxHP={ctrl.char_Status._MaxHP:F0}) at {dist:F1}m (falloff={falloff:F2}" +
+                    (requireLineOfSight ? $", exposure={exposure:F2}" : "") + $") for {damage:F0} dmg.");
             }
 
             if (hits == 0 && hitColliders.Length > 0)
@@ -102,6 +125,63 @@ namespace HumanHostExplosives
             }
 
             return hits;
+        }
+
+        // Same 3-height sampling NailbombProjectile.FireShrapnel uses - feet/torso/head - so a
+        // target crouched behind a wall only catches what's actually exposed rather than an
+        // all-or-nothing check.
+        private static readonly float[] ExposureSampleHeights = { 0.4f, 1.0f, 1.6f };
+
+        /// <summary>
+        /// Fraction (0..1) of ExposureSampleHeights that has a clear line from origin to the
+        /// victim - i.e. how much of their body the blast can actually reach.
+        /// </summary>
+        private static float ComputeExposure(Creature_Mgr creatureMgr, C_Controller_Base victim, Vector3 origin)
+        {
+            Vector3 basePos = victim.transform.position;
+            int clear = 0;
+            for (int i = 0; i < ExposureSampleHeights.Length; i++)
+            {
+                Vector3 target = basePos + Vector3.up * ExposureSampleHeights[i];
+                Vector3 delta = target - origin;
+                float dist = delta.magnitude;
+                if (dist < 0.01f)
+                {
+                    clear++;
+                    continue;
+                }
+
+                // Anything that isn't this victim's own collider counts as cover.
+                if (Physics.Raycast(origin, delta / dist, out RaycastHit hit, dist,
+                                     ~0, QueryTriggerInteraction.Ignore))
+                {
+                    C_Controller_Base blocker = ResolveCharacter(creatureMgr, hit.collider);
+                    if (blocker != victim)
+                    {
+                        continue;   // cover did its job for this sample point
+                    }
+                }
+                clear++;
+            }
+            return clear / (float)ExposureSampleHeights.Length;
+        }
+
+        /// <summary>
+        /// Maps a raycast-hit collider back to the character that owns it - a hit usually lands on
+        /// a ragdoll bone collider rather than the capsule Creature_Mgr keys its lookup by, so walk
+        /// up the hierarchy before giving up.
+        /// </summary>
+        private static C_Controller_Base ResolveCharacter(Creature_Mgr mgr, Collider col)
+        {
+            if (col == null)
+            {
+                return null;
+            }
+            if (mgr.capCol_To_Controller.TryGetValue(col, out C_Controller_Base direct) && direct != null)
+            {
+                return direct;
+            }
+            return col.GetComponentInParent<C_Controller_Base>();
         }
 
         /// <summary>

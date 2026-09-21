@@ -31,6 +31,7 @@ namespace HumanHostExplosives
         private static AnimationClip _clip;
         private static bool _loadAttempted;
         private static Coroutine _restoreRoutine;
+        private static bool _hadWeaponIK;
 
         /// <summary>
         /// Loads the clip on first use. Returns null (once, loudly) if it is unavailable, and
@@ -44,8 +45,7 @@ namespace HumanHostExplosives
             }
             _loadAttempted = true;
 
-            string pluginDir = Path.GetDirectoryName(typeof(ThrowAnimation).Assembly.Location);
-            string bundlePath = Path.Combine(pluginDir, BundleRelPath);
+            string bundlePath = HumanHostExplosives.Registry.AssetPaths.Resolve(BundleRelPath);
 
             if (!File.Exists(bundlePath))
             {
@@ -151,6 +151,20 @@ namespace HumanHostExplosives
                 speed = 1f;
             }
 
+            // The clip is a third-person throw. Played in first person it animates the very rig the
+            // camera is sitting inside, so the arms sweep across the whole screen, and the release
+            // frame puts the hand behind the camera - which is why a first-person throw looked
+            // wrong AND the grenade seemed to vanish. Sit it out and let the caller throw
+            // instantly from the camera instead (see ExplosiveSpawner.GetOrigin).
+            if (player._InFirstPerson && !Plugin.ThrowAnimationInFirstPerson.Value)
+            {
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo("[ThrowAnim] skipped: first person (ThrowAnimationInFirstPerson=false).");
+                }
+                return 0f;
+            }
+
             // The controller refuses to play anything at all while this is set (no log, no error).
             if (player._NotAllowPlay)
             {
@@ -165,6 +179,18 @@ namespace HumanHostExplosives
             if (player._UseIK && player._IK != null)
             {
                 player._IK._allowRightHandIK = false;
+            }
+
+            // While a gun is held, the LEFT hand is pinned to the foregrip by the hold-gun rig
+            // (_rigIKs_HoldGun + _leftGrip_HoldGun, driven through Lerp_RigIKs - see
+            // GAME_SYSTEMS_REFERENCE.md 1.4). The throw clip moves both arms, so that pin fights
+            // it and the left hand ends up twisted and floating in mid-air, reaching for a grip
+            // that is no longer there. Vanilla's own "play a generic arm animation" path
+            // (C_Controller_Base.Delay_Finish_TakeOut_Item) winds these to zero first; do the same.
+            _hadWeaponIK = player._UseIK && player._hasMeleeOrRangedWeapon != 0;
+            if (_hadWeaponIK)
+            {
+                player.Lerp_RigIKs(0f, 0f);
             }
 
             // Fade the upper-body layer in - it sits at weight 0 outside aiming mode.
@@ -273,16 +299,43 @@ namespace HumanHostExplosives
                 yield break;
             }
 
-            // Leave the layer up if the player is aiming - the game keeps it at weight 1 there and
-            // fading it out would drop them out of the aim pose.
-            if (!player._InAimingMode && player._UpperBodyLayer != null)
+            // Hand the layer back exactly the way vanilla does (C_Controller_Base
+            // .Reset_UpperLayerMask): fade it out when hip-firing, but when the player IS aiming,
+            // re-fire On_AimingMode so the game re-plays its own aim pose on top of ours. Simply
+            // leaving the layer up - which is what this used to do - latches our last throw frame
+            // at full weight forever, which is why the arm stayed twisted in mid-air until a
+            // weapon change happened to re-drive the layer.
+            if (player._UpperBodyLayer != null)
             {
-                player._UpperBodyLayer.StartFade(0f, 0.15f);
+                if (player._InAimingMode)
+                {
+                    player.forceUpdateAnim_UpLayer = true;
+                    player._On_AimingMode.Invoke(true);
+                }
+                else
+                {
+                    player._UpperBodyLayer.StartFade(0f, 0.15f);
+                }
             }
 
             if (player._UseIK && player._IK != null)
             {
                 player._IK._allowRightHandIK = true;
+            }
+
+            // Put the gun back in both hands. Mirrors On_Ragdoll_GetUp_Void (Creature:2244):
+            // one-handed/pistol grips restore to (0,0), a two-handed long gun to (1,1).
+            if (_hadWeaponIK)
+            {
+                _hadWeaponIK = false;
+                if (player._hasMeleeOrRangedWeapon == 1 || player._hasPistolGun)
+                {
+                    player.Lerp_RigIKs(0f, 0f);
+                }
+                else if (player._hasMeleeOrRangedWeapon != 0)
+                {
+                    player.Lerp_RigIKs(1f, 1f);
+                }
             }
         }
     }

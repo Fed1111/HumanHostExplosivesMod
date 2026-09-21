@@ -128,20 +128,26 @@ namespace HumanHostExplosives.Registry
                 return false;
             }
 
-            if (string.IsNullOrEmpty(Plugin.TemplateIconGuid.Value) || string.IsNullOrEmpty(Plugin.TemplateModelGuid.Value))
+            // A config entry only gets the compiled default when the KEY IS MISSING from the
+            // .cfg file - BepInEx never overwrites an existing entry, blank or not. Anyone who ran
+            // an older build (when these defaulted to "") has that blank value permanently baked
+            // into their own .cfg, and updating the DLL alone can never fix it for them - the file
+            // on their disk always wins over whatever default ships in the new code. Falling back
+            // to the compiled default here (instead of failing) makes every such install self-heal
+            // on the very next launch, with no need for the player to find and delete a config file.
+            string iconGuid = Plugin.TemplateIconGuid.Value;
+            if (string.IsNullOrEmpty(iconGuid))
             {
-                Plugin.Log.LogWarning(
-                    "[Registry] TemplateIconGuid/TemplateModelGuid are not set. Run the game once with " +
-                    "Diagnostics.EnableDiagnostics on, pick up a simple one-handed tool or melee weapon " +
-                    "(a knife/hatchet/hammer - not a consumable, not anything two-handed), and copy the " +
-                    "logged assetRef_Key/ModelRef GUID into the config file. " +
-                    "Explosive item registration skipped for this session.");
-                _buildFailed = true;
-                return false;
+                iconGuid = Plugin.DefaultTemplateIconGuid;
+            }
+            string modelGuid = Plugin.TemplateModelGuid.Value;
+            if (string.IsNullOrEmpty(modelGuid))
+            {
+                modelGuid = Plugin.DefaultTemplateModelGuid;
             }
 
-            GameObject iconTemplate = LoadByGuid(Plugin.TemplateIconGuid.Value, "template icon");
-            GameObject modelTemplate = LoadByGuid(Plugin.TemplateModelGuid.Value, "template model");
+            GameObject iconTemplate = LoadByGuid(iconGuid, "template icon");
+            GameObject modelTemplate = LoadByGuid(modelGuid, "template model");
             if (iconTemplate == null || modelTemplate == null)
             {
                 return false;

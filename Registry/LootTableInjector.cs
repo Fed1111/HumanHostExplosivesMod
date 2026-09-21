@@ -40,10 +40,15 @@ namespace HumanHostExplosives.Registry
 
         private static bool _injected;
 
-        internal static void Reset()
-        {
-            _injected = false;
-        }
+        // The game's own loot tags are localized - a Chinese client reports "军用装备"/"弹药", an
+        // English one reports "Military Gear"/"Ammo" for the same underlying tags. Plugin.LootTags'
+        // compiled default now lists both, but that only helps a FRESH config - same persisted-value-
+        // always-wins issue as TemplateIconGuid: anyone who already generated a .cfg under the old
+        // Chinese-only default is stuck with zero matches on a non-Chinese client no matter what the
+        // compiled default becomes. This fallback list is tried only when the user's configured
+        // value matches nothing at all, so it self-heals that case without overriding anyone who
+        // deliberately customized LootTags to something that actually does match.
+        private static readonly string[] FallbackTags = { "军用装备", "弹药", "Military Gear", "Ammo" };
 
         /// <summary>
         /// Runs once, the first time a loot window is opened - by then Loot_Mgr.ins exists and its
@@ -86,55 +91,69 @@ namespace HumanHostExplosives.Registry
                 string[] wanted = Plugin.LootTags.Value
                     .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-                int added = 0;
-                foreach (ExplosiveDef def in Plugin.Defs)
-                {
-                    if (def == null || string.IsNullOrEmpty(def.IconGuid) || !def.SpawnsInLoot)
-                    {
-                        continue;
-                    }
-
-                    for (int i = 0; i < array.Length; i++)
-                    {
-                        object entry = array.GetValue(i);
-                        string tag = TagField.GetValue(entry) as string;
-                        if (string.IsNullOrEmpty(tag) || !MatchesAny(tag, wanted))
-                        {
-                            continue;
-                        }
-
-                        var refs = IconsField.GetValue(entry) as AssetReference[];
-                        var list = new List<AssetReference>(refs ?? new AssetReference[0]);
-
-                        // Idempotent: re-running must not stack duplicates, which would silently
-                        // multiply our spawn weight within the tag.
-                        bool already = list.Exists(r => r != null && r.AssetGUID == def.IconGuid);
-                        if (already)
-                        {
-                            continue;
-                        }
-
-                        list.Add(new AssetReference(def.IconGuid));
-                        IconsField.SetValue(entry, list.ToArray());
-                        // Structs live in the array by value - write the box back or the edit is lost.
-                        array.SetValue(entry, i);
-                        added++;
-
-                        Plugin.Log.LogInfo($"[Loot] '{def.Tag}' added to loot tag '{tag}'.");
-                    }
-                }
+                int added = InjectForTags(array, wanted);
 
                 if (added == 0)
                 {
                     Plugin.Log.LogWarning(
-                        $"[Loot] no loot tag matched '{Plugin.LootTags.Value}'. Set LootTags to one or more of " +
-                        "the tags logged above (comma-separated, case-insensitive substring match).");
+                        $"[Loot] no loot tag matched '{Plugin.LootTags.Value}' - trying the built-in " +
+                        "multi-language fallback instead (covers a .cfg saved under an older, single-language default).");
+                    added = InjectForTags(array, FallbackTags);
+
+                    if (added == 0)
+                    {
+                        Plugin.Log.LogWarning(
+                            "[Loot] fallback tags matched nothing either. Set LootTags to one or more of " +
+                            "the tags logged above (comma-separated, case-insensitive substring match).");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Plugin.Log.LogWarning("[Loot] injection failed: " + ex.Message);
             }
+        }
+
+        private static int InjectForTags(Array array, string[] wanted)
+        {
+            int added = 0;
+            foreach (ExplosiveDef def in Plugin.Defs)
+            {
+                if (def == null || string.IsNullOrEmpty(def.IconGuid) || !def.SpawnsInLoot)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < array.Length; i++)
+                {
+                    object entry = array.GetValue(i);
+                    string tag = TagField.GetValue(entry) as string;
+                    if (string.IsNullOrEmpty(tag) || !MatchesAny(tag, wanted))
+                    {
+                        continue;
+                    }
+
+                    var refs = IconsField.GetValue(entry) as AssetReference[];
+                    var list = new List<AssetReference>(refs ?? new AssetReference[0]);
+
+                    // Idempotent: re-running must not stack duplicates, which would silently
+                    // multiply our spawn weight within the tag.
+                    bool already = list.Exists(r => r != null && r.AssetGUID == def.IconGuid);
+                    if (already)
+                    {
+                        continue;
+                    }
+
+                    list.Add(new AssetReference(def.IconGuid));
+                    IconsField.SetValue(entry, list.ToArray());
+                    // Structs live in the array by value - write the box back or the edit is lost.
+                    array.SetValue(entry, i);
+                    added++;
+
+                    Plugin.Log.LogInfo($"[Loot] '{def.Tag}' added to loot tag '{tag}'.");
+                }
+            }
+            return added;
         }
 
         private static bool MatchesAny(string tag, string[] wanted)

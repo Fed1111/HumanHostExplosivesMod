@@ -25,10 +25,11 @@ namespace HumanHostExplosives
             _detonated = true;
 
             float radius = Plugin.ExplosionRadius.Value;
+            float effectRadius = Plugin.GrenadeEffectRadius.Value;
             int hits = 0;
             try
             {
-                hits = ExplosionDamage.Apply(transform.position, radius, MaxDamage, Thrower);
+                hits = ExplosionDamage.Apply(transform.position, radius, MaxDamage, Thrower, requireLineOfSight: true);
             }
             catch (System.Exception ex)
             {
@@ -38,7 +39,7 @@ namespace HumanHostExplosives
             int buildableHits = 0;
             try
             {
-                buildableHits = ExplosionDamage.ApplyToBuildables(transform.position, radius, Plugin.BuildableDamage.Value);
+                buildableHits = ExplosionDamage.ApplyToBuildables(transform.position, effectRadius, Plugin.BuildableDamage.Value);
             }
             catch (System.Exception ex)
             {
@@ -56,7 +57,7 @@ namespace HumanHostExplosives
 
             try
             {
-                ExplosionVisual.Spawn(transform.position, radius);
+                ExplosionVisual.Spawn(transform.position, effectRadius, Plugin.GrenadeFlashScale.Value, Plugin.GrenadeParticulateScale.Value);
             }
             catch (System.Exception ex)
             {
@@ -72,7 +73,7 @@ namespace HumanHostExplosives
                 Plugin.Log.LogError($"[Grenade] ExplosionSound.Play threw: {ex}");
             }
 
-            Plugin.Log.LogInfo($"[Grenade] Detonated at {transform.position}, radius={radius}, creatureHits={hits}, buildableHits={buildableHits}.");
+            Plugin.Log.LogInfo($"[Grenade] Detonated at {transform.position}, damageRadius={radius}, effectRadius={effectRadius}, creatureHits={hits}, buildableHits={buildableHits}.");
             Destroy(gameObject);
         }
     }

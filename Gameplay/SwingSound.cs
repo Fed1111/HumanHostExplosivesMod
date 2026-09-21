@@ -123,12 +123,5 @@ namespace HumanHostExplosives
 
             Sound_Mgr.ins.Play_SoundClip_Directly(clip, volume * Plugin.SwingSoundVolume.Value, position);
         }
-
-        /// <summary>Drops the cached set so a config reload can pick a different one.</summary>
-        internal static void ResetCache()
-        {
-            _set = null;
-            _resolveAttempted = false;
-        }
     }
 }

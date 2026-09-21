@@ -57,6 +57,7 @@ namespace HumanHostExplosives
                 _chargingSlot = slot;
                 _chargingDef = def;
                 _chargeStartTime = Time.time;
+                Plugin.SetChargeVisual(true, 0f);
 
                 if (Plugin.EnableDiagnostics.Value)
                 {
@@ -92,6 +93,19 @@ namespace HumanHostExplosives
                         $"selectedMatches={UI_Control.ins == null || UI_Control.ins.selected_Belt_Slot == _chargingSlot}");
                 }
                 CancelCharge();
+                return;
+            }
+
+            Plugin.SetChargeVisual(true, (Time.time - _chargeStartTime) / Plugin.MaxChargeSeconds.Value);
+
+            if (Plugin.CancelChargeRequested())
+            {
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo($"[ChargeDiag] charge cancelled by player (RMB tap or CancelChargeKey) after {Time.time - _chargeStartTime:F2}s");
+                }
+                CancelCharge();
+                Plugin.Toast("Throw cancelled");
                 return;
             }
 
@@ -222,6 +236,7 @@ namespace HumanHostExplosives
         {
             _chargingSlot = null;
             _chargingDef = null;
+            Plugin.SetChargeVisual(false);
         }
     }
 }

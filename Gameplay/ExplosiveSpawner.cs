@@ -10,6 +10,12 @@ namespace HumanHostExplosives
     /// </summary>
     internal static class ExplosiveSpawner
     {
+        /// <summary>
+        /// How far around the spawn point to look for the thrower's held weapon. A rifle held
+        /// across the body reaches well past the hand bone the grenade spawns at.
+        /// </summary>
+        private const float NearbyToolRadius = 1.2f;
+
         internal static GameObject Throw(ExplosiveDef def, Transform camTrans, C_Controller_Base thrower, float throwSpeed = 8f, float upwardArc = 2f)
         {
             if (def == null || camTrans == null)
@@ -40,7 +46,7 @@ namespace HumanHostExplosives
             // (Weapon_Range: Physics.IgnoreCollision(_BowSphereCol, collider, true)).
             // This only suppresses physics contact; the explosion's own overlap check is separate,
             // so self-damage still works exactly as configured.
-            IgnoreThrowerCollisions(collider, thrower);
+            IgnoreThrowerCollisions(collider, thrower, go.transform.position);
 
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = 0.4f;
@@ -77,7 +83,8 @@ namespace HumanHostExplosives
         /// Suppresses physics contact between the thrown projectile and the thrower's own body -
         /// capsule, push capsules, hand colliders and every ragdoll bone collider.
         /// </summary>
-        private static void IgnoreThrowerCollisions(Collider projectile, C_Controller_Base thrower)
+        private static void IgnoreThrowerCollisions(
+            Collider projectile, C_Controller_Base thrower, Vector3 origin)
         {
             if (projectile == null || thrower == null)
             {
@@ -97,6 +104,40 @@ namespace HumanHostExplosives
                 }
                 Physics.IgnoreCollision(projectile, c, ignore: true);
                 ignored++;
+            }
+
+            // The held weapon is a separate prop (Tool_Interacter) that the game parents onto the
+            // hand bone - and not always under the controller's own transform, so the sweep above
+            // can miss it entirely. The grenade spawns AT that hand, i.e. overlapping the gun, and
+            // physics resolves the overlap by shoving it out sideways: that is the "throws off
+            // diagonally to the left while holding a gun" bug. Catch anything near the spawn point
+            // that belongs to this thrower's own tool, wherever it sits in the hierarchy.
+            Collider[] near = Physics.OverlapSphere(
+                origin, NearbyToolRadius, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < near.Length; i++)
+            {
+                Collider c = near[i];
+                if (c == null || c == projectile)
+                {
+                    continue;
+                }
+
+                // Only the thrower's OWN held tool - never arbitrary world geometry, or the
+                // grenade would sail straight through the wall it spawned against.
+                Tool_Interacter tool = c.GetComponentInParent<Tool_Interacter>();
+                if (tool == null || tool._CharBase != thrower)
+                {
+                    continue;
+                }
+
+                Physics.IgnoreCollision(projectile, c, ignore: true);
+                ignored++;
+
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo(
+                        $"[Explosive] ignoring held-tool collider '{c.name}' (tool '{tool.name}').");
+                }
             }
 
             if (Plugin.EnableDiagnostics.Value)
@@ -123,6 +164,18 @@ namespace HumanHostExplosives
             // EquipBones is a struct, so there is nothing to null-check on it - only the Transform
             // inside it, which is unassigned on rigs that never equip anything.
             Transform hand = thrower != null ? thrower._EquipBones.rightHand : null;
+
+            // First person: the camera is inside the head, and the right hand spends most of a
+            // throw behind it. Spawning at the hand there means the grenade appears behind the
+            // near clip plane and is simply never seen leaving. Throw from just in front of the
+            // camera instead - which is what the fallback below was always for.
+            if (thrower != null && thrower._InFirstPerson)
+            {
+                return camTrans.position
+                    + camTrans.forward * Plugin.FirstPersonOriginForward.Value
+                    + camTrans.right * Plugin.FirstPersonOriginRight.Value
+                    + camTrans.up * Plugin.FirstPersonOriginUp.Value;
+            }
 
             if (hand != null)
             {

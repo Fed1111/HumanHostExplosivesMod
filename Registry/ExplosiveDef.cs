@@ -88,9 +88,8 @@ namespace HumanHostExplosives.Registry
                 return true;
             }
 
-            string pluginDir = Path.GetDirectoryName(typeof(ExplosiveDef).Assembly.Location);
-            string objPath = Path.Combine(pluginDir, ObjFileName);
-            string pngPath = Path.Combine(pluginDir, PngFileName);
+            string objPath = AssetPaths.Resolve(ObjFileName);
+            string pngPath = AssetPaths.Resolve(PngFileName);
             if (!File.Exists(objPath) || !File.Exists(pngPath))
             {
                 return false;
@@ -122,7 +121,7 @@ namespace HumanHostExplosives.Registry
             Texture2D iconTexture = RuntimeTexture;
             if (!string.IsNullOrEmpty(IconPngFileName))
             {
-                string iconPath = Path.Combine(pluginDir, IconPngFileName);
+                string iconPath = AssetPaths.Resolve(IconPngFileName);
                 if (File.Exists(iconPath))
                 {
                     iconTexture = TextureLoader.LoadPng(iconPath);

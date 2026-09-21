@@ -5,12 +5,11 @@ namespace HumanHostExplosives
     /// <summary>
     /// Improvised nail bomb: a pipe packed with powder and nails.
     ///
-    /// Deliberately NOT a reskinned grenade. A grenade applies uniform area damage that ignores
-    /// geometry; a nail bomb throws discrete fragments, so this fires a spread of shrapnel rays
-    /// from the blast point and only damages the FIRST thing each ray reaches. The consequences
-    /// are what make it play differently:
+    /// Deliberately NOT a reskinned grenade. Both now respect cover (ExplosionDamage.Apply's
+    /// requireLineOfSight, shared by GrenadeProjectile), but this fires a spread of shrapnel from
+    /// the blast point rather than a uniform-falloff sphere, and only damages the FIRST thing each
+    /// ray reaches. The consequences are what make it play differently from the grenade:
     ///
-    ///   - Cover works. Anything behind a wall, a crate or a tree takes nothing from that ray.
     ///   - Damage concentrates at close range, where more rays intersect the same target.
     ///   - It is vicious against soft targets and poor against structures, which is the opposite
     ///     of the grenade - so the two have a reason to coexist rather than one superseding
@@ -75,7 +74,11 @@ namespace HumanHostExplosives
 
             try
             {
-                ExplosionVisual.Spawn(origin, radius * 0.7f);
+                ExplosionVisual.Spawn(
+                    origin,
+                    radius * Plugin.NailbombVisualRadiusMultiplier.Value,
+                    Plugin.NailbombFlashScale.Value,
+                    Plugin.NailbombParticulateScale.Value);
             }
             catch (System.Exception ex)
             {
