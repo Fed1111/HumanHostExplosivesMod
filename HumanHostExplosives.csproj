@@ -12,6 +12,18 @@
     <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Human Host</GameDir>
     <ManagedDir>$(GameDir)\Human Host_Data\Managed</ManagedDir>
     <BepInExDir>$(GameDir)\BepInEx</BepInExDir>
+    <ModMenuDll>C:\Program Files (x86)\Steam\steamapps\workshop\content\2393970\3794527105\ModMenu.dll</ModMenuDll>
+    <ModMenuDll Condition="!Exists('$(ModMenuDll)')">$(BepInExDir)\plugins\ModMenu.dll</ModMenuDll>
+  </PropertyGroup>
+
+  <!-- Ship builds: optimized, and no .pdb alongside the DLL. BepInEx will happily load a Debug
+       build, so this is about not shipping symbols and unoptimized IL rather than correctness.
+       Build with:  dotnet build -c Release
+       Day-to-day development still uses the default Debug configuration. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,6 +51,41 @@
       <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Animancer backs the character animation layers (Play_Anim_UpLayer / _UpperBodyLayer). -->
+    <Reference Include="Kybernetik.Animancer">
+      <HintPath>$(ManagedDir)\Kybernetik.Animancer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- MyStatics.Get_NoneRepeat_Random_Index - vanilla's non-repeating clip picker. -->
+    <Reference Include="Static_Class">
+      <HintPath>$(ManagedDir)\Static_Class.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- OnGUI for the in-game config-reload confirmation. -->
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <!-- Game-specific gameplay assemblies -->
     <Reference Include="UI">
@@ -53,6 +100,16 @@
       <HintPath>$(ManagedDir)\Unity.Addressables.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Unity.ResourceManager">
+      <HintPath>$(ManagedDir)\Unity.ResourceManager.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Tooltip_Text / ToolTipInfo / Language_Mgr, for item tooltips -->
+    <Reference Include="Language">
+      <HintPath>$(ManagedDir)\Language.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Camera">
       <HintPath>$(ManagedDir)\Camera.dll</HintPath>
       <Private>false</Private>
@@ -65,11 +122,42 @@
       <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <!-- Tool_Interacter, for the WeaponPosData hand-offset fix (Equip_This_Tool overwrites the
+         held model's transform from this data every equip, so the offset has to live here, not
+         on any transform) -->
+    <Reference Include="Hand_Tools">
+      <HintPath>$(ManagedDir)\Hand_Tools.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- AoE damage: Creature_Mgr / C_Controller_Base / Char_Status / RagdollManager,
+         Smash_Fallen_Manager (the game's own trap/fall damage pipeline), the creature
+         layer mask, and WeaponHit_Set.HitInfo (a Minus_Char_HP parameter type). -->
+    <Reference Include="Creature">
+      <HintPath>$(ManagedDir)\Creature.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Build_System">
+      <HintPath>$(ManagedDir)\Build_System.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Global_Funcs">
+      <HintPath>$(ManagedDir)\Global_Funcs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Sound_FX">
+      <HintPath>$(ManagedDir)\Sound_FX.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+      <!-- ModMenu (Workshop 3794527105): compile-time only, never shipped - players subscribe to it themselves. Soft dependency; see ModMenuBridge.cs. -->
+    <Reference Include="ModMenu"><HintPath>$(ModMenuDll)</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
   <!-- Drop the built DLL straight into the plugins folder -->
   <Target Name="DeployToPlugins" AfterTargets="Build">
-    <Copy SourceFiles="$(TargetPath)"
+    <!-- HHMM / ModMenu sidecar (labels + descriptions); regenerate with "HumanHost Audit/tools/gen_hhmm_sidecars.py". -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)" ContinueOnError="true" Condition="Exists('$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json')" />    <Copy SourceFiles="$(TargetPath)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)"
           ContinueOnError="true" />
     <ItemGroup>
@@ -77,6 +165,19 @@
     </ItemGroup>
     <Copy SourceFiles="@(GrenadeAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Grenade"
+          ContinueOnError="true" />
+    <!-- Throw animation AssetBundle (built from Unity 2022.3.62f3). Optional: if it is absent
+         the mod logs once and throws instantly, so a missing bundle must not fail the build. -->
+    <ItemGroup>
+      <AnimAssets Include="$(MSBuildProjectDirectory)\Assets\Anim\**\*.*" />
+      <NailbombAssets Include="$(MSBuildProjectDirectory)\Assets\Nailbomb\**\*.*" />
+    </ItemGroup>
+    <!-- Nailbomb art is optional - the item is gated off in config until it exists. -->
+    <Copy SourceFiles="@(NailbombAssets)"
+          DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Nailbomb"
+          ContinueOnError="true" />
+    <Copy SourceFiles="@(AnimAssets)"
+          DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Assets\Anim"
           ContinueOnError="true" />
   </Target>
 

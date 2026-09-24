@@ -1,0 +1,224 @@
+{
+  "format": 1,
+  "file": "com.nf.humanhostexplosives.cfg",
+  "labels": {
+    "ExplosionDamage": {
+      "en": "Damage at center"
+    },
+    "ExplosionRadius": {
+      "en": "Damage radius (m)"
+    },
+    "GrenadeEffectRadius": {
+      "en": "Effect radius (m)"
+    },
+    "BuildableDamage": {
+      "en": "Structure damage"
+    },
+    "GrenadeNoiseRadius": {
+      "en": "Noise radius (m)"
+    },
+    "GrenadeFlashScale": {
+      "en": "Flash scale"
+    },
+    "GrenadeParticulateScale": {
+      "en": "Debris and smoke scale"
+    },
+    "EnableNailbomb": {
+      "en": "Enable nail bomb"
+    },
+    "NailbombDamage": {
+      "en": "Damage at center"
+    },
+    "NailbombRadius": {
+      "en": "Fragment range (m)"
+    },
+    "NailbombFragmentDamage": {
+      "en": "Fragment damage multiplier"
+    },
+    "NailbombBlockDamage": {
+      "en": "Structure damage"
+    },
+    "NailbombCausesBleed": {
+      "en": "Causes bleeding"
+    },
+    "NailbombNoiseRadius": {
+      "en": "Noise radius (m)"
+    },
+    "NailbombVisualRadiusMultiplier": {
+      "en": "Visual size"
+    },
+    "NailbombFlashScale": {
+      "en": "Flash scale"
+    },
+    "NailbombParticulateScale": {
+      "en": "Debris and smoke scale"
+    },
+    "MinThrowSpeed": {
+      "en": "Tap throw speed (m/s)"
+    },
+    "MaxThrowSpeed": {
+      "en": "Charged throw speed (m/s)"
+    },
+    "MaxChargeSeconds": {
+      "en": "Charge time (s)"
+    },
+    "QuickThrowKey": {
+      "en": "Quick throw key"
+    },
+    "CancelChargeKey": {
+      "en": "Cancel charge key"
+    },
+    "EnableThrowAnimation": {
+      "en": "Throw animation"
+    },
+    "ThrowAnimationSpeed": {
+      "en": "Animation speed"
+    },
+    "ThrowAnimationInFirstPerson": {
+      "en": "Animate in first person"
+    },
+    "EnableSwingSound": {
+      "en": "Swing sound"
+    },
+    "SwingSoundVolume": {
+      "en": "Swing sound volume"
+    },
+    "AllowSelfDamage": {
+      "en": "Self damage"
+    },
+    "SelfDamageMultiplier": {
+      "en": "Self damage multiplier"
+    },
+    "ExplosionsAttractZombies": {
+      "en": "Explosions attract zombies"
+    },
+    "ExplosionVolume": {
+      "en": "Explosion volume"
+    },
+    "EchoDelay": {
+      "en": "Echo delay (s)"
+    },
+    "EchoVolume": {
+      "en": "Echo volume"
+    },
+    "EnableLootSpawning": {
+      "en": "Spawn in loot"
+    },
+    "LootTags": {
+      "en": "Loot tags"
+    },
+    "EnableDiagnostics": {
+      "en": "Diagnostics logging"
+    }
+  },
+  "entries": {
+    "ExplosionDamage": {
+      "en": "Grenade damage at the blast point, falling off to zero at the damage radius."
+    },
+    "ExplosionRadius": {
+      "en": "How far creature and player damage reaches. Does not change the visual size or structure damage."
+    },
+    "GrenadeEffectRadius": {
+      "en": "Radius of the visual explosion and of structure damage."
+    },
+    "BuildableDamage": {
+      "en": "Flat damage to blocks and buildables within the effect radius."
+    },
+    "GrenadeNoiseRadius": {
+      "en": "How far zombies can hear a grenade."
+    },
+    "GrenadeFlashScale": {
+      "en": "Multiplier on the bright flash and fireball. 1 is the original look."
+    },
+    "GrenadeParticulateScale": {
+      "en": "Multiplier on debris and smoke. 1 is the original look."
+    },
+    "EnableNailbomb": {
+      "en": "Register the nail bomb item. Takes effect after restarting the game."
+    },
+    "NailbombDamage": {
+      "en": "Total shrapnel damage at the blast point, split across how much of a target is exposed."
+    },
+    "NailbombRadius": {
+      "en": "How far fragments travel. Cover still protects: fragments only hurt what they can reach in a straight line."
+    },
+    "NailbombFragmentDamage": {
+      "en": "Raise to make close range brutal without widening the range."
+    },
+    "NailbombBlockDamage": {
+      "en": "Flat damage to blocks. Token by design: nails do not bring down walls."
+    },
+    "NailbombCausesBleed": {
+      "en": "Apply the bleeding debuff when shrapnel hits the player. The game's bleed system is player-only."
+    },
+    "NailbombNoiseRadius": {
+      "en": "How far zombies can hear a nail bomb."
+    },
+    "NailbombVisualRadiusMultiplier": {
+      "en": "Fraction of the fragment range used for the visual effect only."
+    },
+    "NailbombFlashScale": {
+      "en": "Multiplier on the bright flash and fireball. 1 is the original look."
+    },
+    "NailbombParticulateScale": {
+      "en": "Multiplier on debris and smoke. 1 is the original look."
+    },
+    "MinThrowSpeed": {
+      "en": "Throw speed for a tap with no hold."
+    },
+    "MaxThrowSpeed": {
+      "en": "Throw speed after holding for the full charge time."
+    },
+    "MaxChargeSeconds": {
+      "en": "How long the button must be held to reach full throw speed."
+    },
+    "QuickThrowKey": {
+      "en": "Hold to charge and throw the first explosive on your hotbar."
+    },
+    "CancelChargeKey": {
+      "en": "Press while charging to abort. A right-click tap always cancels too."
+    },
+    "EnableThrowAnimation": {
+      "en": "Play a throw animation on release in third person."
+    },
+    "ThrowAnimationSpeed": {
+      "en": "Playback speed of the throw clip. The release point scales with it automatically."
+    },
+    "ThrowAnimationInFirstPerson": {
+      "en": "Off by default: the clip is a third-person throw and looks like flailing arms from inside the head."
+    },
+    "EnableSwingSound": {
+      "en": "Play the game's melee swing whoosh during the throw."
+    },
+    "SwingSoundVolume": {
+      "en": "Multiplier on the swing sound. 1 is as loud as the axe."
+    },
+    "AllowSelfDamage": {
+      "en": "Your own explosives can hurt you."
+    },
+    "SelfDamageMultiplier": {
+      "en": "Applied only to damage you take from your own explosives. 1 is full risk."
+    },
+    "ExplosionsAttractZombies": {
+      "en": "Zombies path to the blast, not to you, so a thrown explosive works as a distraction."
+    },
+    "ExplosionVolume": {
+      "en": "Volume of the detonation. Values above 1 amplify."
+    },
+    "EchoDelay": {
+      "en": "Seconds before the returning crack off distant geometry. 0 with echo volume 0 disables it."
+    },
+    "EchoVolume": {
+      "en": "Level of the echo relative to the blast. 0 disables it."
+    },
+    "EnableLootSpawning": {
+      "en": "Let explosives appear in world containers, inheriting the rarity of the loot tags below. Takes effect after restarting the game."
+    },
+    "LootTags": {
+      "en": "Comma-separated loot tags to add explosives to. Open a container once with diagnostics on to see the list in the log. Takes effect after restarting the game."
+    },
+    "EnableDiagnostics": {
+      "en": "Log extra detail about items, crafting tabs and loot tags."
+    }
+  }
+}
