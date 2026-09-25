@@ -84,7 +84,7 @@ namespace HumanHostExplosives
                 {
                     continue;
                 }
-                Vector3 p = c.ClosestPoint(center);
+                Vector3 p = ExplosionDamage.SafeClosestPoint(c, center);
                 float d = (p - center).sqrMagnitude;
                 if (d < best)
                 {

@@ -327,7 +327,7 @@ namespace HumanHostExplosives
                     }
                     ZoneQueue.Insert(0, new ZoneJob
                     {
-                        Bi = job.Bi, Col = c, Point = c.ClosestPoint(job.Point), Damage = job.Damage,
+                        Bi = job.Bi, Col = c, Point = SafeClosestPoint(c, job.Point), Damage = job.Damage,
                         Order = job.Order, Expire = job.Expire,
                     });
                     added++;
@@ -502,6 +502,21 @@ namespace HumanHostExplosives
             ZoneQueue.Insert(job.Stage == 3 ? ZoneQueue.Count : 0, job);
         }
 
+        /// <summary>
+        /// Collider.ClosestPoint for any collider. Unity doesn't support it on a NON-convex MeshCollider and just
+        /// returns the query point - every zone-wall cell then measured 0.00 m from the charge, so "nearest first"
+        /// was random and the core radius filtered nothing (the planted cell came down late). Those use the
+        /// closest point of their bounds instead.
+        /// </summary>
+        internal static Vector3 SafeClosestPoint(Collider c, Vector3 p)
+        {
+            if (c is MeshCollider mc && !mc.convex)
+            {
+                return c.bounds.ClosestPoint(p);
+            }
+            return c.ClosestPoint(p);
+        }
+
         /// <summary>A real shard piece: ZoneSmash_Shard_MinusHP int.Parse()s its parent's name as the cell index.</summary>
         private static bool IsShardPiece(Collider c)
         {
@@ -665,7 +680,7 @@ namespace HumanHostExplosives
                 {
                     if (c != null && c.GetComponentInParent<Build_Info>() != null)
                     {
-                        near.Add(((c.ClosestPoint(center) - center).magnitude, c));
+                        near.Add(((SafeClosestPoint(c, center) - center).magnitude, c));
                     }
                 }
                 near.Sort((a, b) => a.D.CompareTo(b.D));
@@ -853,7 +868,7 @@ namespace HumanHostExplosives
                     // calls in one frame zeroed every cell's HP but sliced ONE - the wall stood until hammered.
                     // TickZoneQueue feeds them one at a time, nearest first. Hit point = the closest point on the
                     // cell's own collider, as a real hit would report, not the blast centre.
-                    Vector3 hitPoint = col.ClosestPoint(center);
+                    Vector3 hitPoint = SafeClosestPoint(col, center);
                     // Demolition cuts only the cells close to the charge: each cut is a multi-frame slice,
                     // run one at a time, so the whole 6 m radius (~200 cells) took many seconds. The rest of
                     // the structure comes down through the game's own fall check once the supports go.
@@ -869,8 +884,9 @@ namespace HumanHostExplosives
                         Point = hitPoint,
                         Damage = wholeBlocks ? 1000000f : damage,
                         // Nearest to ITS charge first, across all charges - not one blast's cells after another's.
-                        Order = Vector3.Distance(center, hitPoint) + _zoneBatch * 0.001f,
-                        Expire = Time.time + 20f,
+                        // (Ties - the charge inside several cells' bounds - go to the cell whose middle is nearest.)
+                        Order = Vector3.Distance(center, hitPoint) + 0.25f * Vector3.Distance(center, col.bounds.center) + _zoneBatch * 0.001f,
+                        Expire = Time.time + 40f,
                         Demolish = wholeBlocks,
                     });
                     hits++;
@@ -972,7 +988,7 @@ namespace HumanHostExplosives
                     float dist;
                     if (directHit)
                     {
-                        dist = Vector3.Distance(center, piece.selfMeshCollider.ClosestPoint(center));
+                        dist = Vector3.Distance(center, SafeClosestPoint(piece.selfMeshCollider, center));
                     }
                     else
                     {
