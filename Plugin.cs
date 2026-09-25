@@ -128,6 +128,9 @@ namespace HumanHostExplosives
         internal static ConfigEntry<int> MaxFirePools;
         internal static ConfigEntry<int> MaxBurning;
         internal static ConfigEntry<bool> BurnPanic;
+        internal static ConfigEntry<float> FireSpreadChance;
+        internal static ConfigEntry<float> FireSpreadRadius;
+        internal static ConfigEntry<float> FireSpreadDuration;
         internal static ConfigEntry<bool> BurnScorch;
         internal static ConfigEntry<int> BurnLights;
         internal static ConfigEntry<int> BurnDetailedCount;
@@ -928,6 +931,14 @@ namespace HumanHostExplosives
             MaxBurning = BindMigrated("Performance", "MaxBurning", 48,
                 RangeInt("Most characters on fire at once. Beyond this nobody new catches fire (pools still hurt). The " +
                 "expensive parts have their own smaller caps (BurnLights, BurnDetailedCount), so this can stay high.", 1, 96), 24);
+            FireSpreadChance = Config.Bind("Fire", "FireSpreadChance", 0.35f,
+                Range("Chance per burn tick that a burning character sets each other character touching it alight (zombie to " +
+                "zombie, zombie to you). 0 = fire never spreads.", 0f, 1f));
+            FireSpreadRadius = Config.Bind("Fire", "FireSpreadRadius", 1.3f,
+                Range("How close (m) someone has to be to a burning character to catch fire from them.", 0.5f, 4f));
+            FireSpreadDuration = Config.Bind("Fire", "FireSpreadDuration", 0.7f,
+                Range("A burn caught from someone else lasts this fraction of a normal one, and never re-lights a burn " +
+                "already going - so a burning crowd burns itself out instead of keeping itself alight forever.", 0.2f, 1f));
             BurnPanic = Config.Bind("Fire", "BurnPanic", true,
                 "A zombie that catches fire breaks into a run.");
             BurnScorch = Config.Bind("Fire", "BurnScorch", true,

@@ -104,6 +104,12 @@
     "FireVolume": {
       "en": "Fire volume"
     },
+    "FireSpreadChance": {
+      "en": "Fire spreads (chance)"
+    },
+    "FireSpreadRadius": {
+      "en": "Fire spread distance (m)"
+    },
     "BurnPanic": {
       "en": "Burning zombies run"
     },
@@ -345,6 +351,12 @@
     },
     "FireVolume": {
       "en": "Volume of the crackle."
+    },
+    "FireSpreadChance": {
+      "en": "Chance each second that a burning character sets someone touching it alight. 0 = no spreading."
+    },
+    "FireSpreadRadius": {
+      "en": "How close someone has to be to a burning character to catch fire."
     },
     "BurnPanic": {
       "en": "A zombie that catches fire breaks into a run."

@@ -95,7 +95,12 @@ namespace HumanHostExplosives
 
         internal static bool IsBurning(C_Controller_Base ctrl) => ctrl != null && Burning.ContainsKey(ctrl);
 
-        internal static void Ignite(C_Controller_Base ctrl, C_Controller_Base attacker)
+        /// <param name="spread">
+        /// Caught from another burning character rather than from a pool or a bottle. Spread never
+        /// re-lights or extends a burn that is already going (two burning zombies side by side would
+        /// otherwise keep each other alight forever), and a spread burn is shorter (FireSpreadDuration).
+        /// </param>
+        internal static void Ignite(C_Controller_Base ctrl, C_Controller_Base attacker, bool spread = false)
         {
             if (ctrl == null || ctrl.char_Status == null || ctrl.char_Status._CurrHP <= 0f)
             {
@@ -120,6 +125,14 @@ namespace HumanHostExplosives
                 return;
             }
 
+            if (spread)
+            {
+                if (Burning.ContainsKey(ctrl))
+                {
+                    return;
+                }
+                duration *= Plugin.FireSpreadDuration.Value;
+            }
             if (Burning.TryGetValue(ctrl, out Burn existing))
             {
                 existing.Until = Mathf.Max(existing.Until, Time.time + duration);
@@ -215,6 +228,7 @@ namespace HumanHostExplosives
                         try
                         {
                             FireDamage.Tick(ctrl, Plugin.BurnDamage.Value, b.Attacker);
+                            Spread(ctrl, b);
                         }
                         catch (System.Exception ex)
                         {
@@ -224,6 +238,48 @@ namespace HumanHostExplosives
                 }
             }
             TickScorch();
+        }
+
+        private static readonly Collider[] SpreadBuffer = new Collider[24];
+        private static readonly List<C_Controller_Base> SpreadTargets = new List<C_Controller_Base>();
+
+        /// <summary>
+        /// Once per burn tick: anyone within FireSpreadRadius of a burning character may catch fire
+        /// (FireSpreadChance each). Collected first and ignited after the scan, since Ignite adds to the
+        /// table the caller is iterating a snapshot of.
+        /// </summary>
+        private static void Spread(C_Controller_Base source, Burn b)
+        {
+            float chance = Plugin.FireSpreadChance.Value;
+            if (chance <= 0f || Burning.Count >= Plugin.MaxBurning.Value)
+            {
+                return;
+            }
+            int mask = Global_Infos.ins != null ? Global_Infos.ins.Mask_Creature.value : -1;
+            Vector3 at = source.transform.position + Vector3.up * 0.9f;
+            int n = Physics.OverlapSphereNonAlloc(at, Plugin.FireSpreadRadius.Value, SpreadBuffer, mask, QueryTriggerInteraction.Ignore);
+            SpreadTargets.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                C_Controller_Base other = FireDamage.Resolve(SpreadBuffer[i]);
+                if (other == null || other == source || Burning.ContainsKey(other) || SpreadTargets.Contains(other) ||
+                    other.char_Status == null || other.char_Status._CurrHP <= 0f)
+                {
+                    continue;
+                }
+                if (Random.value < chance)
+                {
+                    SpreadTargets.Add(other);
+                }
+            }
+            foreach (C_Controller_Base other in SpreadTargets)
+            {
+                Ignite(other, b.Attacker, spread: true);
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo($"[Fire] spread from {source.name} to {other.name}.");
+                }
+            }
         }
 
         /// <summary>
