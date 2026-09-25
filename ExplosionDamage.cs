@@ -223,12 +223,16 @@ namespace HumanHostExplosives
             internal float Order;    // blast batch, then distance from that blast
             internal float Expire;
             internal bool Sweep;     // no collider: find the shard pieces left at Point and hit those
-            internal bool Demolish;  // demolition: after cutting a cell, sweep its shards too
+            internal bool Demolish;  // demolition: after cutting a cell, run its second stage too
+            internal int Stage;      // demolition follow-ups on cell ChildIndex: 2 = break the cut cell, 3 = clear its leftovers
+            internal int ChildIndex;
+            internal int Tries;
         }
 
         private static readonly List<ZoneJob> ZoneQueue = new List<ZoneJob>();
         private static int _zoneBatch;
         private static bool _zoneSorted = true;
+        private static bool _zoneYield;
 
         /// <summary>
         /// Called from Plugin.Update: hands queued zone-wall hits to the game one at a time, each as soon as
@@ -255,7 +259,8 @@ namespace HumanHostExplosives
             ExplosionDrops.Scope++;
             try
             {
-                while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null)
+                _zoneYield = false;
+                while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null && !_zoneYield)
                 {
                     ZoneJob job = ZoneQueue[0];
                     ZoneQueue.RemoveAt(0);
@@ -294,6 +299,11 @@ namespace HumanHostExplosives
         private static void RunZoneJob(Smash_Fallen_Manager smash, ZoneJob job)
         {
             ExplosionDrops.MarkRecent(job.Bi.gameObject, job.Point);
+            if (job.Stage > 0)
+            {
+                RunDemolishStage(smash, job);
+                return;
+            }
             if (job.Sweep)
             {
                 int n = Physics.OverlapSphereNonAlloc(job.Point, 0.9f, SweepBuffer, ~0, QueryTriggerInteraction.Ignore);
@@ -336,17 +346,102 @@ namespace HumanHostExplosives
                 return;
             }
 
+            int childIndex = col.transform.GetSiblingIndex();
             smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: true);
             if (job.Demolish)
             {
-                // After this cell's slice runs, clear what it leaves standing.
+                // A zone cell breaks in two stages: the hit above only PRE-cuts it into hidden shards (the
+                // wall still stands, at "0 / 1000"); the next hit on one of those shards is what shows them,
+                // drops the loose ones and runs the structure's fall check. Do that straight away - at the
+                // front of the queue, so each cell finishes before the next one starts - then clear the
+                // pieces left clinging to the edges once the whole blast has been cut.
+                ZoneQueue.Insert(0, new ZoneJob
+                {
+                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order - 0.0001f,
+                    Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex,
+                });
                 ZoneQueue.Add(new ZoneJob
                 {
-                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order + 0.5f,
-                    Expire = job.Expire, Sweep = true,
+                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order + 1000f,
+                    Expire = Time.time + 90f, Stage = 3, ChildIndex = childIndex,
                 });
                 _zoneSorted = false;
             }
+        }
+
+        private static readonly List<Collider> StageShards = new List<Collider>();
+
+        /// <summary>
+        /// Demolition follow-ups for one cut cell, found through the game's own record of it
+        /// (_BIsibling2SilceTop[building][cell] = the parent of the cell's shards) rather than a physics
+        /// search. Stage 2 hits one shard - the game's second stage for the whole cell. Stage 3 breaks
+        /// every shard still standing, a handful per turn.
+        /// </summary>
+        private static void RunDemolishStage(Smash_Fallen_Manager smash, ZoneJob job)
+        {
+            if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+            {
+                Requeue(job);   // the shard path waits for furniture spawning
+                return;
+            }
+            var tops = Traverse.Create(smash).Field("_BIsibling2SilceTop").GetValue<Dictionary<Transform, Dictionary<int, Transform>>>();
+            Transform sliceTop = null;
+            if (tops == null || !tops.TryGetValue(job.Bi.transform, out var cells) || !cells.TryGetValue(job.ChildIndex, out sliceTop) || sliceTop == null)
+            {
+                if (job.Stage == 2 && job.Tries < 20)
+                {
+                    Requeue(job);   // the pre-cut hasn't registered yet
+                }
+                return;             // stage 3: the cell is already gone completely
+            }
+            StageShards.Clear();
+            for (int i = 0; i < sliceTop.childCount; i++)
+            {
+                Transform t = sliceTop.GetChild(i);
+                if (t.gameObject.activeInHierarchy && t.CompareTag("ZoneSlice") && t.TryGetComponent(out MeshCollider mc) && mc.enabled)
+                {
+                    StageShards.Add(mc);
+                }
+            }
+            if (StageShards.Count == 0)
+            {
+                if (job.Stage == 2 && job.Tries < 20)
+                {
+                    Requeue(job);   // shards get their colliders at the end of the async cut
+                }
+                return;
+            }
+            if (job.Stage == 2)
+            {
+                // Nearest shard to the charge.
+                Collider best = StageShards[0];
+                float bestD = float.MaxValue;
+                foreach (Collider c in StageShards)
+                {
+                    float d = (c.bounds.center - job.Point).sqrMagnitude;
+                    if (d < bestD)
+                    {
+                        bestD = d;
+                        best = c;
+                    }
+                }
+                smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: true);
+                return;
+            }
+            // Stage 3: one shard per turn (each one is its own slice), then come back for the rest.
+            Collider shard = StageShards[0];
+            smash.ZoneSmash_Shard_MinusHP(job.Bi, shard.bounds.center, shard, job.Damage, isFromPlayer: true);
+            if (StageShards.Count > 1 && job.Tries < 40)
+            {
+                Requeue(job);
+            }
+        }
+
+        private static void Requeue(ZoneJob job)
+        {
+            job.Tries++;
+            _zoneYield = true;   // try again next frame, not six times in this one
+            ZoneQueue.Insert(job.Stage == 3 ? ZoneQueue.Count : 0, job);
         }
 
         /// <summary>A real shard piece: ZoneSmash_Shard_MinusHP int.Parse()s its parent's name as the cell index.</summary>
