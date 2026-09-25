@@ -106,7 +106,7 @@ before it blows, and sometimes it doesn't go off at all.
 [*][b]Remote charges[/b] (Gun Workbench), two kinds: the [b]demolition charge[/b] (2000 structure
 damage, built for breaching walls) and the [b]anti-personnel charge[/b] (faces the way you look, fires a
 wide fan of fragments). Place them like mines; a small on-screen widget shows how many are out and
-whether they are ARMING or READY, and one key (X by default) sets them all off. No detonator to carry.
+whether they are ARMING or READY, and one key (B by default) sets them all off. No detonator to carry.
 Shootable, can be picked back up, saved with your game.
 [*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
 [*]Explosions and breaking glass [b]draw zombies[/b] to the spot, not to you, so a throw works as a

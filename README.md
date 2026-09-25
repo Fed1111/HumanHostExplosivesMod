@@ -130,7 +130,7 @@ intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no
 
 Remote charges are `PlacedMine`s with `Def.RemoteDetonated`: same placement, kneel, pickup, save file
 and shootable collider, but no proximity trigger. `Gameplay/RemoteCharges.cs` draws the HUD widget
-(count, ARMING / READY / OUT OF RANGE) and handles `RemoteCharge.DetonateKey` (default X, with a
+(count, ARMING / READY / OUT OF RANGE) and handles `RemoteCharge.DetonateKey` (default B, with a
 one-time warning if it clashes with a game binding). The anti-personnel charge fires
 `Shrapnel.Fire` with a cone along its `transform.forward`, which faces the camera direction at
 placement.

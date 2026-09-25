@@ -30,7 +30,7 @@ must not need Nitrate/Gun Powder (late-game Biochemical bench) â€” they use 20â€
 - **Mines / charges** (`PlacedMine`, `MinePlacer`, `MinePersistence`, `RemoteCharges`): kneel to place
   (crouch + `_RightHandPutItemAnim`), beep, pickup with interact key, saved with the game
   (`Save/Auto_Save/HHX_Mines.txt`, ID+seed stamped), shootable (Scene-layer collider +
-  `Directly_Interact` prefix), chain detonation. Remote charges: HUD widget middle-left, X detonates all
+  `Directly_Interact` prefix), chain detonation. Remote charges: HUD widget middle-left, B detonates all
   armed in range (150 m).
 - **Demolition**: breaks every block it touches completely; big walls take all remaining HP; zone cells
   destroyed outright. Always logs a `[Demolition]` summary per blast.

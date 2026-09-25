@@ -378,7 +378,7 @@ namespace HumanHostExplosives
 
             // Config versions: 0 = 0.2.2 and earlier, 1 = the first 0.3.0 dev build (set only the old
             // MigratedDefaults030 flag - never published), 2 = recipe rework + mine tuning, 3 = loot moved to
-            // military containers only (LootTags), 4 = MaxBurning 24 -> 48. All unpublished dev steps; 0.3.0 ships at 4. A version NUMBER, not a
+            // military containers only (LootTags), 4 = MaxBurning 24 -> 48, 5 = DetonateKey X -> B. All unpublished dev steps; 0.3.0 ships at 5. A version NUMBER, not a
             // done/not-done flag: the flag made every later default change invisible to anyone who had
             // already run the first 0.3.0 build (their recipes stayed at 1-2 of each - 2026-09-25).
             MigratedDefaults030 = Config.Bind(
@@ -811,7 +811,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 4;
+        private const int CurrentConfigVersion = 5;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
@@ -1005,9 +1005,9 @@ namespace HumanHostExplosives
             EnableAPCharge = Config.Bind("RemoteCharge", "EnableAPCharge", true,
                 "Register the anti-personnel charge: a remote-detonated directional charge that fires a cone of fragments the " +
                 "way you were facing when you placed it. Takes effect after restarting the game.");
-            DetonateKey = Config.Bind("RemoteCharge", "DetonateKey", KeyCode.X,
-                "Sets off every armed remote charge in range. The mod warns in the log and on screen if this is also one of the " +
-                "game's own keys.");
+            DetonateKey = BindMigrated("RemoteCharge", "DetonateKey", KeyCode.B,
+                new ConfigDescription("Sets off every armed remote charge in range. The mod warns in the log and on screen if this is " +
+                "also one of the game's own keys."), KeyCode.X);
             DetonateRange = Config.Bind("RemoteCharge", "DetonateRange", 150f,
                 Range("How far (m) from you a charge can be set off.", 10f, 500f));
             RemoteArmSeconds = Config.Bind("RemoteCharge", "ArmSeconds", 3f,
@@ -1242,7 +1242,7 @@ namespace HumanHostExplosives
                 MaxStack = 3,
                 TooltipName = "Demolition Charge",
                 TooltipType = "Explosive",
-                TooltipInstruction = "A block of plastic explosive with a radio receiver. Equip and tap LMB to set it down - on the ground or stuck to a wall - then press the detonate key (default X) to set off every armed charge in range. Built for bringing down walls. Shooting it sets it off. Pick it back up with your interact key.",
+                TooltipInstruction = "A block of plastic explosive with a radio receiver. Equip and tap LMB to set it down - on the ground or stuck to a wall - then press the detonate key (default B) to set off every armed charge in range. Built for bringing down walls. Shooting it sets it off. Pick it back up with your interact key.",
                 WorkbenchTypeName = Config.Bind("DemoCharge", "WorkbenchType", "GunWorkbench", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
                 TabIndex = Config.Bind("DemoCharge", "CraftTabIndex", 1, "Which tab (0-based). Default is GunWorkbench's 'Ammo' tab.").Value,
                 CraftSeconds = Config.Bind("DemoCharge", "CraftSeconds", 30f, "Crafting time in seconds.").Value,
@@ -1269,7 +1269,7 @@ namespace HumanHostExplosives
                 MaxStack = 3,
                 TooltipName = "Anti-Personnel Charge",
                 TooltipType = "Explosive",
-                TooltipInstruction = "A curved directional charge on legs, with a radio receiver. Equip and tap LMB to set it down facing the way you look, then press the detonate key (default X): it fires a wide fan of fragments out of its front. Stay behind it. Shooting it sets it off.",
+                TooltipInstruction = "A curved directional charge on legs, with a radio receiver. Equip and tap LMB to set it down facing the way you look, then press the detonate key (default B): it fires a wide fan of fragments out of its front. Stay behind it. Shooting it sets it off.",
                 WorkbenchTypeName = Config.Bind("APCharge", "WorkbenchType", "GunWorkbench", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
                 TabIndex = Config.Bind("APCharge", "CraftTabIndex", 1, "Which tab (0-based). Default is GunWorkbench's 'Ammo' tab.").Value,
                 CraftSeconds = Config.Bind("APCharge", "CraftSeconds", 30f, "Crafting time in seconds.").Value,
