@@ -50,6 +50,9 @@ namespace HumanHostExplosives.Registry
         /// <summary>Placed, but never self-triggers: set off from the HUD's detonate key (RemoteCharges).</summary>
         internal bool RemoteDetonated;
 
+        /// <summary>Can also be stuck to walls (vertical surfaces), placed without the kneel.</summary>
+        internal bool WallPlaceable;
+
         /// <summary>How many items one craft yields (PerIconData.craftNum - the UI shows "x N").</summary>
         internal int CraftNum = 1;
 

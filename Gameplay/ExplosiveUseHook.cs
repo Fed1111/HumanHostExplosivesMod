@@ -257,9 +257,10 @@ namespace HumanHostExplosives
             bool ok = false;
             Vector3 point = Vector3.zero;
             Quaternion rot = Quaternion.identity;
+            bool onWall = false;
             try
             {
-                ok = MinePlacer.TryFindPlacement(def, player, out point, out rot);
+                ok = MinePlacer.TryFindPlacement(def, player, out point, out rot, out onWall);
             }
             catch (System.Exception ex)
             {
@@ -267,15 +268,23 @@ namespace HumanHostExplosives
             }
             if (ok)
             {
-                Plugin.Instance.StartCoroutine(PlaceRoutine(slot, def, player, point, rot));
+                Plugin.Instance.StartCoroutine(PlaceRoutine(slot, def, player, point, rot, onWall));
             }
         }
 
         private static System.Collections.IEnumerator PlaceRoutine(Slot_Info slot, ExplosiveDef def, Player_Input player,
-                                                                  Vector3 point, Quaternion rot)
+                                                                  Vector3 point, Quaternion rot, bool onWall = false)
         {
             _placing = true;
             bool wasCrouching = player.Pressed_Crouch;
+            // Stuck to a wall: no kneel and no reach-down (both are for the ground) - it just goes on.
+            if (onWall)
+            {
+                yield return new WaitForSeconds(0.15f);
+                PlaceNow(slot, def, player, point, rot);
+                _placing = false;
+                yield break;
+            }
             try
             {
                 // Kneel: the game's own crouch (collider, camera and pose all follow). Input_Crouch
@@ -303,27 +312,7 @@ namespace HumanHostExplosives
             }
             yield return new WaitForSeconds(reach > 0f ? reach * 0.55f : 0.35f);
 
-            // The slot may have changed during the reach (dropped, swapped, used up elsewhere).
-            bool stillThere = slot != null && !slot._IsEmptySlot && slot._iconInfoPrefab != null &&
-                              ExplosiveItemRegistry.FindByTag(slot._iconInfoPrefab._Tag) == def;
-            if (stillThere && MineManager.Count < Plugin.MaxActiveMines.Value)
-            {
-                try
-                {
-                    PlacedMine.Create(def, point, rot, player);
-                    Item_Slot_Mgr mgr = Item_Slot_Mgr.Ins;
-                    mgr.Item_Stack_Minus_1(slot);
-                    if (string.IsNullOrEmpty(slot._StackText))
-                    {
-                        mgr.Del_OnHand_Slot_Item(slot);
-                        mgr.Hide_UseClickIcon();
-                    }
-                }
-                catch (System.Exception ex)
-                {
-                    Plugin.Log.LogError("[Mine] placement threw: " + ex);
-                }
-            }
+            PlaceNow(slot, def, player, point, rot);
 
             yield return new WaitForSeconds(reach > 0f ? reach * 0.45f + 0.1f : 0.35f);
             if (player != null && !wasCrouching)
@@ -331,6 +320,33 @@ namespace HumanHostExplosives
                 player.Pressed_Crouch = false;
             }
             _placing = false;
+        }
+
+        /// <summary>Puts the mine down and takes one from the stack - if the slot still holds it.</summary>
+        private static void PlaceNow(Slot_Info slot, ExplosiveDef def, Player_Input player, Vector3 point, Quaternion rot)
+        {
+            // The slot may have changed meanwhile (dropped, swapped, used up elsewhere).
+            bool stillThere = slot != null && !slot._IsEmptySlot && slot._iconInfoPrefab != null &&
+                              ExplosiveItemRegistry.FindByTag(slot._iconInfoPrefab._Tag) == def;
+            if (!stillThere || MineManager.Count >= Plugin.MaxActiveMines.Value)
+            {
+                return;
+            }
+            try
+            {
+                PlacedMine.Create(def, point, rot, player);
+                Item_Slot_Mgr mgr = Item_Slot_Mgr.Ins;
+                mgr.Item_Stack_Minus_1(slot);
+                if (string.IsNullOrEmpty(slot._StackText))
+                {
+                    mgr.Del_OnHand_Slot_Item(slot);
+                    mgr.Hide_UseClickIcon();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Mine] placement threw: " + ex);
+            }
         }
 
         private static void CancelCharge()

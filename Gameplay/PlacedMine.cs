@@ -140,7 +140,8 @@ namespace HumanHostExplosives
 
             if (Def.Kind == ExplosiveKind.DemoCharge)
             {
-                Blast.Detonate(Blast.Demo(), pos + Vector3.up * 0.1f, Owner);
+                // transform.up: out of the wall when stuck to one, straight up on the ground.
+                Blast.Detonate(Blast.Demo(), pos + transform.up * 0.1f, Owner);
                 Destroy(gameObject);
                 return;
             }

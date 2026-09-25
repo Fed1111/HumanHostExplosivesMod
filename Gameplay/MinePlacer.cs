@@ -20,7 +20,7 @@ namespace HumanHostExplosives
 
         internal static bool TryPlace(ExplosiveDef def, C_Controller_Base player)
         {
-            if (!TryFindPlacement(def, player, out Vector3 point, out Quaternion rot))
+            if (!TryFindPlacement(def, player, out Vector3 point, out Quaternion rot, out _))
             {
                 return false;
             }
@@ -28,11 +28,15 @@ namespace HumanHostExplosives
             return true;
         }
 
-        /// <summary>The checks and the spot, without placing - so the kneel can play first.</summary>
-        internal static bool TryFindPlacement(ExplosiveDef def, C_Controller_Base player, out Vector3 point, out Quaternion rot)
+        /// <summary>
+        /// The checks and the spot, without placing - so the kneel can play first. onWall: a
+        /// WallPlaceable item (the demolition charge) stuck to a vertical surface - no kneel for that.
+        /// </summary>
+        internal static bool TryFindPlacement(ExplosiveDef def, C_Controller_Base player, out Vector3 point, out Quaternion rot, out bool onWall)
         {
             point = Vector3.zero;
             rot = Quaternion.identity;
+            onWall = false;
             if (def == null || player == null || def.RuntimeMesh == null || def.RuntimeMaterial == null)
             {
                 return false;
@@ -50,10 +54,19 @@ namespace HumanHostExplosives
                 return false;
             }
 
-            if (!FindSpot(cam, player, out point, out Vector3 normal))
+            if (!FindSpot(cam, player, def.WallPlaceable, out point, out Vector3 normal, out onWall))
             {
                 Plugin.Toast("No room to place a mine here");
                 return false;
+            }
+
+            if (onWall)
+            {
+                // Flat against the wall (model up = wall normal), long side horizontal (model forward
+                // points up the wall).
+                Vector3 upWall = Vector3.ProjectOnPlane(Vector3.up, normal);
+                rot = Quaternion.LookRotation(upWall.sqrMagnitude > 0.001f ? upWall.normalized : Vector3.forward, normal);
+                return true;
             }
 
             // Face where the player is LOOKING (camera), not where the body happens to point - the
@@ -65,8 +78,10 @@ namespace HumanHostExplosives
             return true;
         }
 
-        private static bool FindSpot(Transform cam, C_Controller_Base player, out Vector3 point, out Vector3 normal)
+        private static bool FindSpot(Transform cam, C_Controller_Base player, bool allowWall,
+                                     out Vector3 point, out Vector3 normal, out bool onWall)
         {
+            onWall = false;
             int mask = MolotovProjectile.WorldMask();
             Vector3 feet = player.transform.position;
             float maxRange = Vector3.Distance(cam.position, feet) + Plugin.MinePlaceDistance.Value + 1f;
@@ -84,6 +99,13 @@ namespace HumanHostExplosives
                 {
                     point = hit.point;
                     normal = hit.normal;
+                    return true;
+                }
+                if (allowWall && AcceptableWall(hit, feet))
+                {
+                    point = hit.point;
+                    normal = hit.normal;
+                    onWall = true;
                     return true;
                 }
                 break;
@@ -116,6 +138,20 @@ namespace HumanHostExplosives
             d.y = 0f;
             float horizontal = d.magnitude;
             return horizontal >= MinHorizontal && horizontal <= Plugin.MinePlaceDistance.Value + 0.5f && Mathf.Abs(vertical) < 2.5f;
+        }
+
+        /// <summary>A roughly vertical surface within reach, between the ankles and just over head height.</summary>
+        private static bool AcceptableWall(RaycastHit hit, Vector3 feet)
+        {
+            if (Mathf.Abs(hit.normal.y) > 0.35f)
+            {
+                return false;
+            }
+            Vector3 d = hit.point - feet;
+            float vertical = d.y;
+            d.y = 0f;
+            float horizontal = d.magnitude;
+            return horizontal >= 0.25f && horizontal <= Plugin.MinePlaceDistance.Value + 0.5f && vertical > 0.05f && vertical < 2.4f;
         }
 
         private static bool IsOwn(Collider c, C_Controller_Base player)
