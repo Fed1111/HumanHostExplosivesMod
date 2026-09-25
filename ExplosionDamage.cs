@@ -293,6 +293,7 @@ namespace HumanHostExplosives
         /// </summary>
         private static void RunZoneJob(Smash_Fallen_Manager smash, ZoneJob job)
         {
+            ExplosionDrops.MarkRecent(job.Bi.gameObject, job.Point);
             if (job.Sweep)
             {
                 int n = Physics.OverlapSphereNonAlloc(job.Point, 0.9f, SweepBuffer, ~0, QueryTriggerInteraction.Ignore);
@@ -549,13 +550,22 @@ namespace HumanHostExplosives
                     // TickZoneQueue feeds them one at a time, nearest first. Hit point = the closest point on the
                     // cell's own collider, as a real hit would report, not the blast centre.
                     Vector3 hitPoint = col.ClosestPoint(center);
+                    // Demolition cuts only the cells close to the charge: each cut is a multi-frame slice,
+                    // run one at a time, so the whole 6 m radius (~200 cells) took many seconds. The rest of
+                    // the structure comes down through the game's own fall check once the supports go.
+                    if (wholeBlocks && Vector3.Distance(center, hitPoint) > Plugin.DemoCoreRadius.Value)
+                    {
+                        continue;
+                    }
+                    ExplosionDrops.MarkRecent(buildInfo.gameObject, center);
                     ZoneQueue.Add(new ZoneJob
                     {
                         Bi = buildInfo,
                         Col = col,
                         Point = hitPoint,
                         Damage = wholeBlocks ? 1000000f : damage,
-                        Order = _zoneBatch * 10000f + Vector3.Distance(center, hitPoint),
+                        // Nearest to ITS charge first, across all charges - not one blast's cells after another's.
+                        Order = Vector3.Distance(center, hitPoint) + _zoneBatch * 0.001f,
                         Expire = Time.time + 20f,
                         Demolish = wholeBlocks,
                     });

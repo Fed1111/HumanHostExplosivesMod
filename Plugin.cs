@@ -182,6 +182,9 @@ namespace HumanHostExplosives
         internal static ConfigEntry<bool> EnableLootSpawning;
         internal static ConfigEntry<float> LootChance;
         internal static ConfigEntry<bool> ExplosionResourcesOnGround;
+        internal static ConfigEntry<bool> DebrisChunks;
+        internal static ConfigEntry<int> MaxDebrisChunks;
+        internal static ConfigEntry<float> DemoCoreRadius;
         internal static ConfigEntry<KeyCode> MinePickupKey;
         internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
@@ -462,6 +465,16 @@ namespace HumanHostExplosives
                 "Explosives", "ResourcesOnGround", true,
                 "Resources knocked out of blocks by an explosion drop on the ground where the block was, instead of going " +
                 "straight into your inventory. Melee is unaffected.");
+            DebrisChunks = Config.Bind(
+                "Explosives", "DebrisChunks", true,
+                "Explosions next to a structure throw chunks of it (in its own material) outward. Visual only.");
+            MaxDebrisChunks = Config.Bind("Performance", "MaxDebrisChunks", 80,
+                RangeInt("Most debris chunks flying at once.", 0, 300));
+            DemoCoreRadius = Config.Bind(
+                "RemoteCharge", "DemoCoreRadius", 3.5f,
+                Range("Demolition charge: wall sections within this distance (m) are cut out completely; the rest of the " +
+                "structure falls through the game's own support check once they go. Larger = more destroyed, but slower " +
+                "(the game cuts one section at a time).", 1f, 8f));
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +

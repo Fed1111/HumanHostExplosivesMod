@@ -19,6 +19,8 @@ namespace HumanHostExplosives
         internal bool Heavy;         // sound bank: the deep, long "heavy" explosions
         internal bool Metallic;      // synthesized-sound fallback: the metallic variant
         internal string Sound;       // sound bank category override (e.g. "ap"); null = from Heavy
+        internal int Debris;         // chunks thrown off a nearby structure (DebrisBurst)
+        internal float DebrisForce;
     }
 
     /// <summary>
@@ -79,6 +81,18 @@ namespace HumanHostExplosives
                 Plugin.Log.LogError($"[{p.LogTag}] ExplosionSound.Play threw: {ex}");
             }
 
+            try
+            {
+                if (buildableHits > 0)
+                {
+                    DebrisBurst.Spawn(center, p.Debris, p.DebrisForce);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError($"[{p.LogTag}] debris threw: {ex}");
+            }
+
             MineManager.OnBlast(center, p.EffectRadius);
 
             Plugin.Log.LogInfo($"[{p.LogTag}] Detonated at {center}, damageRadius={p.DamageRadius}, " +
@@ -99,6 +113,8 @@ namespace HumanHostExplosives
                 ParticulateScale = Plugin.GrenadeParticulateScale.Value,
                 HitFlyForce = 1f,
                 Volume = Plugin.ExplosionVolume.Value,
+                Debris = 8,
+                DebrisForce = 9f,
             };
         }
 
@@ -129,6 +145,8 @@ namespace HumanHostExplosives
             p.Volume = Plugin.ExplosionVolume.Value * 1.25f;
             p.WholeBlocks = true;
             p.Heavy = true;
+            p.Debris = 26;
+            p.DebrisForce = 13f;
             return p;
         }
 
@@ -147,6 +165,8 @@ namespace HumanHostExplosives
             p.HitFlyForce = 1.5f;
             p.Volume = Plugin.ExplosionVolume.Value * 1.1f;
             p.Heavy = true;
+            p.Debris = 12;
+            p.DebrisForce = 11f;
             return p;
         }
     }

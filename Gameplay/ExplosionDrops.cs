@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -23,6 +24,21 @@ namespace HumanHostExplosives
         /// <summary>&gt; 0 while an explosive is breaking things.</summary>
         internal static int Scope;
 
+        /// <summary>
+        /// Buildings an explosion just hit, and where. Zone walls pay their resources out from inside the
+        /// slice coroutine (Build_System:20153), frames after the hit and outside Scope - so a reward from
+        /// one of these within a few seconds also lands on the ground, at the blast point.
+        /// </summary>
+        private static readonly Dictionary<GameObject, (Vector3 Point, float Until)> Recent = new Dictionary<GameObject, (Vector3, float)>();
+
+        internal static void MarkRecent(GameObject building, Vector3 point)
+        {
+            if (building != null)
+            {
+                Recent[building] = (point, Time.time + 6f);
+            }
+        }
+
         private static readonly MethodInfo DropItemMI = AccessTools.Method(typeof(Item_Slot_Mgr), "DropItem");
 
         [HarmonyPatch(typeof(Item_Slot_Mgr), nameof(Item_Slot_Mgr.Pick_Enviro_Item))]
@@ -31,14 +47,17 @@ namespace HumanHostExplosives
             private static bool Prefix(Item_Slot_Mgr __instance, GameObject pickedBI_Obj, int pickStack, AssetReference pickIconRef,
                                        bool destroyOrigBI, bool isPropBI, ref bool __result)
             {
-                if (Scope <= 0 || !Plugin.ExplosionResourcesOnGround.Value || DropItemMI == null || pickStack <= 0 ||
+                bool recent = pickedBI_Obj != null && Recent.TryGetValue(pickedBI_Obj, out var mark) && Time.time <= mark.Until;
+                if ((Scope <= 0 && !recent) || !Plugin.ExplosionResourcesOnGround.Value || DropItemMI == null || pickStack <= 0 ||
                     pickIconRef == null || string.IsNullOrEmpty(pickIconRef.AssetGUID))
                 {
                     return true;
                 }
                 try
                 {
-                    Vector3 at = pickedBI_Obj != null ? pickedBI_Obj.transform.position : Player_Input.ins.transform.position;
+                    // A zone wall's "BI" is the whole building, whose origin can be metres away - use the hit point.
+                    Vector3 at = recent ? Recent[pickedBI_Obj].Point
+                        : pickedBI_Obj != null ? pickedBI_Obj.transform.position : Player_Input.ins.transform.position;
                     at += new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.4f, UnityEngine.Random.Range(-0.4f, 0.4f));
                     if (!Drop(__instance, pickIconRef, pickStack, at))
                     {
