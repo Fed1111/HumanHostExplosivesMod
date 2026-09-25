@@ -132,6 +132,7 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> MineTriggerRadius;
         internal static ConfigEntry<float> MineArmSeconds;
         internal static ConfigEntry<float> MineTriggerDelay;
+        internal static ConfigEntry<bool> MinePressureRelease;
         internal static ConfigEntry<float> MineNoiseRadius;
 
         internal static ConfigEntry<bool> EnableImprovisedMine;
@@ -149,8 +150,12 @@ namespace HumanHostExplosives
         internal static ConfigEntry<int> MaxActiveMines;
         internal static ConfigEntry<bool> InstantArmMines;
         internal static ConfigEntry<bool> MigratedDefaults030;
+        internal static ConfigEntry<int> ConfigVersion;
 
         internal static ConfigEntry<bool> EnableLootSpawning;
+        internal static ConfigEntry<float> LootChance;
+        internal static ConfigEntry<KeyCode> MinePickupKey;
+        internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
 
         internal static ConfigEntry<KeyCode> QuickThrowKey;
@@ -344,10 +349,19 @@ namespace HumanHostExplosives
                 "Point in the clip (0-1) the whoosh plays. Slightly before ReleaseNormalized so it leads the release, " +
                 "matching how vanilla fires it at the start of a swing rather than on contact.");
 
+            // Config versions: 0 = 0.2.2 and earlier, 1 = the first 0.3.0 dev build (set only the old
+            // MigratedDefaults030 flag - never published), 2 = 0.3.0 as released. A version NUMBER, not a
+            // done/not-done flag: the flag made every later default change invisible to anyone who had
+            // already run the first 0.3.0 build (their recipes stayed at 1-2 of each - 2026-09-25).
             MigratedDefaults030 = Config.Bind(
                 "Registry", "MigratedDefaults030", false,
-                "Internal bookkeeping - do not edit. True once the 0.3.0 recipe/default migration has run for this " +
-                "install (see BindMigrated), so a value you later set back to an old default is never overwritten.");
+                "Internal bookkeeping - superseded by ConfigVersion, kept only so older installs are recognised.");
+            ConfigVersion = Config.Bind(
+                "Registry", "ConfigVersion", 0,
+                "Internal bookkeeping - do not edit. Which set of defaults this .cfg was last migrated to (see BindMigrated), " +
+                "so a value you later set back to an old default is never overwritten.");
+            _storedConfigVersion = _freshConfig ? CurrentConfigVersion
+                : System.Math.Max(ConfigVersion.Value, MigratedDefaults030.Value ? 1 : 0);
             EnableMolotov = BindMigrated(
                 "Molotov", "EnableMolotov", true,
                 new ConfigDescription("Register the Molotov. ON since 0.3.0, when it got its model and the fire system. It was off " +
@@ -415,15 +429,25 @@ namespace HumanHostExplosives
                 "Let explosives spawn in world containers. This adds our item to an EXISTING loot tag rather than " +
                 "creating a new spawn rate, so it inherits that tag's rarity and only appears in containers that " +
                 "already roll it - and it automatically respects your loot-rate setting and looting skill.");
-            LootTags = Config.Bind(
-                "Loot", "LootTags", "军用装备,弹药,Military Gear,Ammo",
-                "Comma-separated loot tags to add explosives to. NOTE: this game's own tag names are localized - a " +
-                "Chinese client reports 军用装备 (Military Equipment) and 弹药 (Ammunition), an English client reports " +
-                "Military Gear and Ammo for the same tags, so the default covers both. " +
-                "Matched case-insensitively as substrings, so use full tags: 军用装备 rather than 用装备, which would also " +
-                "match 民用装备 (civilian) and 警用装备 (police). Open any " +
-                "container once with the mod loaded and the log lists every available tag ('[Loot] available loot " +
-                "tags: ...') - set this to the ones that fit your client's language.");
+            LootChance = Config.Bind(
+                "Loot", "LootChance", 0.3f,
+                Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
+                "with this chance and otherwise swapped for another item of the same tag. 1 = as common as anything else " +
+                "in the tag, 0 = never found (crafting only).", 0f, 1f));
+            MinePickupKey = Config.Bind(
+                "Mine", "PickupKey", KeyCode.None,
+                "Key to pick up a placed mine you are looking at (within 2.5 m). None = the game's own interact key.");
+            GrenadeRattleVolume = Config.Bind(
+                "Explosives", "GrenadeRattleVolume", 0.6f,
+                Range("Volume of the spoon (safety lever) flying off when a grenade or contact grenade is thrown. 0 = off.", 0f, 2f));
+            LootTags = BindMigrated(
+                "Loot", "LootTags", "军用装备,Military Gear",
+                new ConfigDescription("Comma-separated loot tags to add explosives to. Military containers only since 0.3.0 - the " +
+                "Ammo tag rolls in far more containers and made explosives common. Tag names are localized: a Chinese " +
+                "client reports 军用装备 (Military Gear), an English one Military Gear, so the default covers both. Matched " +
+                "case-insensitively as substrings. Open any container once with the mod loaded and the log lists every " +
+                "available tag ('[Loot] available loot tags: ...'). Takes effect after restarting the game."),
+                "军用装备,弹药,Military Gear,Ammo");
 
             TemplateIconGuid = Config.Bind(
                 "Registry", "TemplateIconGuid", DefaultTemplateIconGuid,
@@ -486,8 +510,13 @@ namespace HumanHostExplosives
                 "back-to-back without hand-editing ThrowKind + pressing F7 each time. Same EnableDiagnostics gate as " +
                 "ThrowGrenadeKey itself.");
             Defs = BuildDefs();
-            if (!MigratedDefaults030.Value)
+            if (ConfigVersion.Value != CurrentConfigVersion)
             {
+                if (!_freshConfig && _storedConfigVersion < CurrentConfigVersion)
+                {
+                    Log.LogInfo($"[Migration] config migrated from version {_storedConfigVersion} to {CurrentConfigVersion}.");
+                }
+                ConfigVersion.Value = CurrentConfigVersion;
                 MigratedDefaults030.Value = true;
                 Config.Save();
             }
@@ -500,6 +529,8 @@ namespace HumanHostExplosives
                 "Extra item GUIDs (comma-separated) that count as 'any ammunition' in recipes - for ammo added by other " +
                 "mods' guns. Vanilla loose rounds and crafted rounds of every caliber are already included.").Value);
             AnyAmmoMaterial.Apply(_harmony);
+            LootRarity.Apply(_harmony);
+            MinePersistence.Init();
 
             foreach (ExplosiveDef def in Defs)
             {
@@ -749,18 +780,22 @@ namespace HumanHostExplosives
 
         private static bool _freshConfig;
         private static bool _migrationBackupDone;
+        private static int _storedConfigVersion;
+
+        /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
+        private const int CurrentConfigVersion = 2;
 
         /// <summary>
-        /// Binds an entry and, on an UPGRADE (not a fresh install) that hasn't run the 0.3.0 migration
-        /// yet, moves it to the new default if it still holds one of the old defaults. Anything else is
-        /// the player's own choice and is left alone (MOD_CONVENTIONS §1a/§48). Done at bind time
-        /// because BuildDefs reads recipe entries immediately - a migration after BuildDefs would
-        /// need a second restart to take effect.
+        /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
+        /// it to the new default if it still holds one of the defaults ANY earlier version shipped.
+        /// Anything else is the player's own choice and is left alone (MOD_CONVENTIONS §1a/§48). Done at
+        /// bind time because BuildDefs reads recipe entries immediately - a migration after BuildDefs
+        /// would need a second restart to take effect.
         /// </summary>
         private ConfigEntry<T> BindMigrated<T>(string section, string key, T newDefault, ConfigDescription desc, params T[] oldDefaults)
         {
             ConfigEntry<T> entry = Config.Bind(section, key, newDefault, desc);
-            if (_freshConfig || MigratedDefaults030 == null || MigratedDefaults030.Value)
+            if (_freshConfig || ConfigVersion == null || _storedConfigVersion >= CurrentConfigVersion)
             {
                 return entry;
             }
@@ -772,9 +807,9 @@ namespace HumanHostExplosives
                     if (!_migrationBackupDone)
                     {
                         _migrationBackupDone = true;
-                        BackupConfigFile(".pre-0.3.0-migration.bak");
+                        BackupConfigFile($".pre-config-v{CurrentConfigVersion}.bak");
                     }
-                    Log.LogInfo($"[Migration] {section}.{key}: '{entry.Value}' was the old default - updated to '{newDefault}' for 0.3.0.");
+                    Log.LogInfo($"[Migration] {section}.{key}: '{entry.Value}' was an old default - updated to '{newDefault}'.");
                     entry.Value = (T)entry.DefaultValue;
                     break;
                 }
@@ -881,10 +916,12 @@ namespace HumanHostExplosives
                 Range("Flat damage to buildables within MineEffectRadius.", 0f, 1000f));
             MineTriggerRadius = Config.Bind("Mine", "MineTriggerRadius", 1.6f,
                 Range("How close (m) something has to come to set it off.", 0.5f, 4f));
-            MineArmSeconds = Config.Bind("Mine", "MineArmSeconds", 3f,
-                Range("Seconds after placing before it is live - and it also waits until you have stepped away from it.", 0.5f, 15f));
-            MineTriggerDelay = Config.Bind("Mine", "MineTriggerDelay", 0.15f,
-                Range("Seconds between the click and the blast.", 0f, 2f));
+            // User request 2026-09-25: arm 3 -> 4 s, trigger delay 0.15 -> 1 s (a click, then a beat).
+            // Old defaults migrate on the 0.3.0 pass (MOD_CONVENTIONS #48).
+            MineArmSeconds = BindMigrated("Mine", "MineArmSeconds", 4f,
+                Range("Seconds after placing before it is live - and it also waits until you have stepped away from it.", 0.5f, 15f), 3f);
+            MineTriggerDelay = BindMigrated("Mine", "MineTriggerDelay", 1f,
+                Range("Seconds between the click and the blast.", 0f, 2f), 0.15f);
             MineNoiseRadius = Config.Bind("Mine", "MineNoiseRadius", 60f,
                 Range("How far (m) zombies hear it go off.", 0f, 200f));
 
@@ -902,21 +939,25 @@ namespace HumanHostExplosives
                 Range("How close (m) something has to come to set it off. Smaller than the mine's - a crude trigger.", 0.5f, 4f));
             ImprovisedMineArmSeconds = Config.Bind("ImprovisedMine", "ImprovisedMineArmSeconds", 5f,
                 Range("Seconds after placing before it is live (and you must have stepped away).", 0.5f, 15f));
-            ImprovisedMineTriggerDelay = Config.Bind("ImprovisedMine", "ImprovisedMineTriggerDelay", 0.35f,
-                Range("Seconds between the click and the blast - long enough to hear it coming.", 0f, 2f));
+            ImprovisedMineTriggerDelay = BindMigrated("ImprovisedMine", "ImprovisedMineTriggerDelay", 1f,
+                Range("Seconds between the click and the blast - long enough to hear it coming.", 0f, 2f), 0.35f);
             ImprovisedMineDudChance = Config.Bind("ImprovisedMine", "ImprovisedMineDudChance", 0.05f,
                 Range("Chance (0-0.5) it just fizzes when triggered. Never a dud when set off by another blast.", 0f, 0.5f));
             ImprovisedMineNoiseRadius = Config.Bind("ImprovisedMine", "ImprovisedMineNoiseRadius", 45f,
                 Range("How far (m) zombies hear it go off.", 0f, 200f));
 
-            MinesTriggerOnPlayer = Config.Bind("Mine", "MinesTriggerOnPlayer", true,
-                "Mines go off for you (and friendly NPCs) too, like the game's own traps do. A mine never arms while you are " +
-                "still standing next to it, so placing one is safe. Off = only hostiles set mines off.");
+            MinePressureRelease = Config.Bind("Mine", "PressureRelease", true,
+                "Both mines: stepping on one makes it click, and it goes off the moment nothing is standing on it any " +
+                "more - no timer, like a real pressure-release mine. Off = it goes off a fixed delay after the click " +
+                "(MineTriggerDelay / ImprovisedMineTriggerDelay).");
+            MinesTriggerOnPlayer = BindMigrated("Mine", "MinesTriggerOnPlayer", false,
+                new ConfigDescription("Mines go off for you (and friendly NPCs) too, like the game's own traps do. A mine never arms while you are " +
+                "still standing next to it, so placing one is safe. Off = only hostiles set mines off."), true);
             MinePlaceDistance = Config.Bind("Mine", "MinePlaceDistance", 3f,
                 Range("How far (m) ahead of you a mine can be placed - where you look, on fairly flat ground.", 1f, 5f));
             MaxActiveMines = Config.Bind("Performance", "MaxActiveMines", 20,
-                RangeInt("Most mines placed at once. Placing more is refused (and costs nothing). Mines are not saved - they " +
-                "are gone after quitting or loading.", 1, 64));
+                RangeInt("Most mines placed at once. Placing more is refused (and costs nothing). Placed mines are saved " +
+                "with your game.", 1, 64));
         }
 
         private List<ExplosiveDef> BuildDefs()
@@ -953,7 +994,7 @@ namespace HumanHostExplosives
             // replaced the Duct Tape binding with the spring: tape is the improvised items' material.
             AddRecipeSlot(grenade, "Grenade", 1, MatForgedIron, 3, "Iron Ingot - casing", new[] { 2 });
             AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 10, "Gun Powder - filler", new[] { 5 });
-            AddRecipeSlot(grenade, "Grenade", 3, MatSpring, 8, "Spring - fuse lever", new[] { 3 }, MatDuctTape);
+            AddRecipeSlot(grenade, "Grenade", 3, MatSpring, 8, "Spring - fuse lever", new[] { 3, 1 }, MatDuctTape);
             AddRecipeSlot(grenade, "Grenade", 4, MatScrapBrass, 10, "Scrap Brass - fuse and pin");
 
             var contact = new ExplosiveDef
@@ -977,10 +1018,10 @@ namespace HumanHostExplosives
                 CraftNum = CraftCountConfig("ContactGrenade"),
                 HandOffset = HandOffsetConfig("ContactGrenade", "Same mesh as the grenade, so the grenade's tuned value."),
             };
-            AddRecipeSlot(contact, "ContactGrenade", 1, MatForgedIron, 3, "Iron Ingot - casing");
-            AddRecipeSlot(contact, "ContactGrenade", 2, MatGunPowder, 8, "Gun Powder - filler");
-            AddRecipeSlot(contact, "ContactGrenade", 3, MatSpring, 10, "Spring - striker");
-            AddRecipeSlot(contact, "ContactGrenade", 4, MatScrapBrass, 15, "Scrap Brass - impact cap");
+            AddRecipeSlot(contact, "ContactGrenade", 1, MatForgedIron, 3, "Iron Ingot - casing", new[] { 2 });
+            AddRecipeSlot(contact, "ContactGrenade", 2, MatGunPowder, 8, "Gun Powder - filler", new[] { 4 });
+            AddRecipeSlot(contact, "ContactGrenade", 3, MatSpring, 10, "Spring - striker", new[] { 1 });
+            AddRecipeSlot(contact, "ContactGrenade", 4, MatScrapBrass, 15, "Scrap Brass - impact cap", new[] { 1 });
 
             var nailbomb = new ExplosiveDef
             {
@@ -1018,8 +1059,8 @@ namespace HumanHostExplosives
             // bench and biome-5/6 nitrate ore. Bombs cost bullets: that is the trade-off.
             AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 25, "Nails - the shrapnel", new[] { 5, 8 });
             AddRecipeSlot(nailbomb, "Nailbomb", 2, MatAnyAmmo, 20, "any ammunition - pulled for its powder", new[] { 5 }, MatNitratePowder);
-            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 10, "Duct Tape - binding", new[] { 3 });
-            AddRecipeSlot(nailbomb, "Nailbomb", 4, MatScrapIron, 10, "Scrap Iron - the pipe");
+            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 10, "Duct Tape - binding", new[] { 3, 2 });
+            AddRecipeSlot(nailbomb, "Nailbomb", 4, MatScrapIron, 10, "Scrap Iron - the pipe", new[] { 1 });
 
             var molotov = new ExplosiveDef
             {
@@ -1048,9 +1089,9 @@ namespace HumanHostExplosives
                                               new Vector3(0f, 0f, -0.3f)),
             };
             // Alcohol comes in its own bottle, so no Glass (which needs sand from the late biomes).
-            AddRecipeSlot(molotov, "Molotov", 1, MatAlcohol, 2, "Alcohol - fuel, and the bottle", new[] { 1 }, "");
-            AddRecipeSlot(molotov, "Molotov", 2, MatTornCloth, 10, "Torn Cloth - the wick", new[] { 1 }, "");
-            AddRecipeSlot(molotov, "Molotov", 3, MatTreeSap, 10, "Tree Sap - makes the fire stick", new[] { 1 }, "");
+            AddRecipeSlot(molotov, "Molotov", 1, MatAlcohol, 2, "Alcohol - fuel, and the bottle", new[] { 1 }, "", MatGlass);
+            AddRecipeSlot(molotov, "Molotov", 2, MatTornCloth, 10, "Torn Cloth - the wick", new[] { 1, 2 }, "", MatAlcohol);
+            AddRecipeSlot(molotov, "Molotov", 3, MatTreeSap, 10, "Tree Sap - makes the fire stick", new[] { 1 }, "", MatTornCloth);
 
             var improvised = new ExplosiveDef
             {
@@ -1067,17 +1108,17 @@ namespace HumanHostExplosives
                 MaxStack = 3,
                 TooltipName = "Improvised Mine",
                 TooltipType = "Explosive",
-                TooltipInstruction = "A can of powder and nails on a spring trigger. Equip and tap LMB to set it on the ground ahead of you. It arms once you step away, then sprays nails at whatever comes close - you too. Crude: it clicks before it blows, and sometimes it doesn't. Not kept when you save and quit.",
+                TooltipInstruction = "A can of powder and nails on a spring trigger. Equip and tap LMB to set it on the ground ahead of you. It arms once you step away, then sprays nails at whatever comes close - you too. Crude: it clicks before it blows, and sometimes it doesn't. Look at it and press your interact key to pick it back up. Shooting it sets it off.",
                 WorkbenchTypeName = Config.Bind("ImprovisedMine", "WorkbenchType", "HandMade", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
                 TabIndex = Config.Bind("ImprovisedMine", "CraftTabIndex", 5, "Which tab (0-based). Default is HandMade's 'Trap' tab.").Value,
                 CraftSeconds = Config.Bind("ImprovisedMine", "CraftSeconds", 15f, "Crafting time in seconds.").Value,
                 CraftNum = CraftCountConfig("ImprovisedMine"),
                 HandOffset = HandOffsetConfig("ImprovisedMine", "Starts at the grenade's tuned value."),
             };
-            AddRecipeSlot(improvised, "ImprovisedMine", 1, MatScrapIron, 15, "Scrap Iron - the can");
-            AddRecipeSlot(improvised, "ImprovisedMine", 2, MatNails, 40, "Nails - the shrapnel");
-            AddRecipeSlot(improvised, "ImprovisedMine", 3, MatAnyAmmo, 25, "any ammunition - pulled for its powder");
-            AddRecipeSlot(improvised, "ImprovisedMine", 4, MatSpring, 10, "Spring - the trigger");
+            AddRecipeSlot(improvised, "ImprovisedMine", 1, MatScrapIron, 15, "Scrap Iron - the can", new[] { 3 });
+            AddRecipeSlot(improvised, "ImprovisedMine", 2, MatNails, 40, "Nails - the shrapnel", new[] { 6 });
+            AddRecipeSlot(improvised, "ImprovisedMine", 3, MatAnyAmmo, 25, "any ammunition - pulled for its powder", new[] { 6 }, MatNitratePowder);
+            AddRecipeSlot(improvised, "ImprovisedMine", 4, MatSpring, 10, "Spring - the trigger", new[] { 1 });
 
             var mine = new ExplosiveDef
             {
@@ -1093,17 +1134,17 @@ namespace HumanHostExplosives
                 MaxStack = 3,
                 TooltipName = "Land Mine",
                 TooltipType = "Explosive",
-                TooltipInstruction = "A pressure mine. Equip and tap LMB to set it on the ground ahead of you. It arms once you step away (a red light blinks), then blows whatever comes close - you too. A nearby blast sets it off. Not kept when you save and quit.",
+                TooltipInstruction = "A pressure mine. Equip and tap LMB to set it on the ground ahead of you. It arms once you step away (a red light blinks), then blows whatever comes close - you too. A nearby blast or a bullet sets it off. Look at it and press your interact key to pick it back up.",
                 WorkbenchTypeName = Config.Bind("Mine", "WorkbenchType", "GunWorkbench", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
                 TabIndex = Config.Bind("Mine", "CraftTabIndex", 1, "Which tab (0-based). Default is GunWorkbench's 'Ammo' tab.").Value,
                 CraftSeconds = Config.Bind("Mine", "CraftSeconds", 25f, "Crafting time in seconds.").Value,
                 CraftNum = CraftCountConfig("Mine"),
                 HandOffset = HandOffsetConfig("Mine", "Starts at the grenade's tuned value."),
             };
-            AddRecipeSlot(mine, "Mine", 1, MatForgedSteel, 4, "Steel Ingot - casing");
-            AddRecipeSlot(mine, "Mine", 2, MatGunPowder, 15, "Gun Powder - charge");
-            AddRecipeSlot(mine, "Mine", 3, MatSpring, 15, "Spring - pressure plate");
-            AddRecipeSlot(mine, "Mine", 4, MatElectricalWire, 2, "Electrical Wire - fuze");
+            AddRecipeSlot(mine, "Mine", 1, MatForgedSteel, 4, "Steel Ingot - casing", new[] { 2 });
+            AddRecipeSlot(mine, "Mine", 2, MatGunPowder, 15, "Gun Powder - charge", new[] { 8 });
+            AddRecipeSlot(mine, "Mine", 3, MatSpring, 15, "Spring - pressure plate", new[] { 2 });
+            AddRecipeSlot(mine, "Mine", 4, MatElectricalWire, 2, "Electrical Wire - fuze", new[] { 1 });
 
             var defs = new List<ExplosiveDef>();
             AddIfReady(defs, grenade, true);
@@ -1173,20 +1214,20 @@ namespace HumanHostExplosives
         internal const string MatAnyAmmo = AnyAmmoMaterial.Guid;                    // mod-defined: any loose rounds
 
         /// <summary>
-        /// Binds one recipe slot. oldCounts / oldGuid are the published (0.2.x and earlier) defaults this
-        /// slot is migrated FROM (null = the slot is new, nothing to migrate).
+        /// Binds one recipe slot. oldCounts / oldGuids are every default this slot has shipped with in an
+        /// earlier config version - it is migrated FROM those (null = nothing to migrate).
         /// </summary>
         private void AddRecipeSlot(ExplosiveDef def, string section, int slotNumber,
                                    string defaultGuid, int defaultCount, string what,
-                                   int[] oldCounts = null, string oldGuid = null)
+                                   int[] oldCounts = null, params string[] oldGuids)
         {
             var guidDesc = new ConfigDescription(
                 $"Material #{slotNumber}'s icon GUID for this recipe (default: {what}). " +
                 $"Leave empty to skip this slot. {AnyAmmoMaterial.Guid} means ANY loose ammunition (any caliber, any mix). " +
                 "GUIDs can be decoded offline from StreamingAssets/aa/catalog.json - " +
                 "see tools/catalog_guids.py in the audit repo - or found in-game with Diagnostics.EnableItemPickupLogger.");
-            string guid = oldGuid != null
-                ? BindMigrated(section, $"RecipeMaterial{slotNumber}Guid", defaultGuid, guidDesc, oldGuid).Value
+            string guid = oldGuids != null && oldGuids.Length > 0
+                ? BindMigrated(section, $"RecipeMaterial{slotNumber}Guid", defaultGuid, guidDesc, oldGuids).Value
                 : Config.Bind(section, $"RecipeMaterial{slotNumber}Guid", defaultGuid, guidDesc).Value;
 
             var countDesc = new ConfigDescription($"How many of material #{slotNumber} the recipe needs.");
@@ -1503,6 +1544,30 @@ namespace HumanHostExplosives
             BurnManager.Follow();
         }
 
+        private static GUIStyle _hintStyle;
+
+        /// <summary>"[F] Pick up Land Mine" under the crosshair while looking at a placed mine.</summary>
+        private static void DrawMinePickupHint()
+        {
+            PlacedMine m = MinePersistence.LookedAt;
+            if (m == null || m.Def == null)
+            {
+                return;
+            }
+            if (_hintStyle == null)
+            {
+                _hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
+            }
+            string text = m.Phase == PlacedMine.State.Triggered
+                ? $"{m.Def.TooltipName} - LIVE"
+                : $"[{MinePersistence.PickupKeyName()}] Pick up {m.Def.TooltipName}";
+            var rect = new Rect(Screen.width * 0.5f - 200f, Screen.height * 0.5f + 40f, 400f, 30f);
+            _hintStyle.normal.textColor = Color.black;
+            GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, _hintStyle);
+            _hintStyle.normal.textColor = m.Phase == PlacedMine.State.Triggered ? new Color(1f, 0.35f, 0.3f) : new Color(1f, 0.95f, 0.8f);
+            GUI.Label(rect, text, _hintStyle);
+        }
+
         private static GUIStyle _barBgStyle;
         private static GUIStyle _barFillStyle;
 
@@ -1512,6 +1577,7 @@ namespace HumanHostExplosives
             {
                 DrawChargeBar();
             }
+            DrawMinePickupHint();
 
             if (string.IsNullOrEmpty(_toastText) || Time.unscaledTime > _toastUntil)
             {
@@ -1571,6 +1637,8 @@ namespace HumanHostExplosives
             ExplosiveUseHook.PollCharge();
             BurnManager.Tick();
             MineManager.Tick();
+            MinePersistence.TickLoad();
+            MinePersistence.TickPickup();
 
             // Gated behind EnableDiagnostics on top of defaulting to KeyCode.None - this spawns
             // explosives for free, bypassing inventory entirely, so it must not be reachable by a

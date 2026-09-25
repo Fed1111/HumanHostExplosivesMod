@@ -28,6 +28,8 @@ namespace HumanHostExplosives.Registry
         private static bool _retrying;
         private static GameObject _root;
 
+        internal static bool Built => _built;
+
         internal static void Initialize(List<ExplosiveDef> defs)
         {
             _defs = defs;

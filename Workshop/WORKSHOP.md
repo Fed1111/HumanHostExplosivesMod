@@ -98,8 +98,9 @@ charge than the grenade.
 catch fire and keep burning. So can you. The flames and light are the game's own torch effects.
 [*][b]Nail bomb[/b] (hand-crafted): a crude pipe bomb that sprays shrapnel. Cover blocks it, it's
 brutal in the open, it's weak against walls, and it can make you bleed.
-[*][b]Land mine[/b] (Gun Workbench): tap LMB to put it on the ground where you are looking. It arms
-once you step away, blinks red, and blows up whatever comes close. Nearby blasts set mines off.
+[*][b]Land mine[/b] (Gun Workbench): tap LMB and your character kneels to set it down where you are
+looking. It arms once you step away, blinks red, and blows up whatever comes close. Shoot it, or
+blast near it, and it goes off. Pick it back up with your interact key. Saved with your game.
 [*][b]Improvised mine[/b] (hand-crafted, Trap tab): nails in a can on a spring trigger. It clicks
 before it blows, and sometimes it doesn't go off at all.
 [*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
@@ -119,8 +120,8 @@ caliber, any mix - so a bomb costs you bullets. The Gun Workbench items need ref
 Gun Powder.
 
 [h2]Loot[/h2]
-Grenades, contact grenades, nail bombs and land mines can turn up in military and ammo loot. They
-use existing loot tags, so they respect your loot-rate setting. Molotovs and improvised mines are
+Grenades, contact grenades, nail bombs and land mines can turn up in military containers - rarely:
+about a third as often as other military items (adjustable). Molotovs and improvised mines are
 home-made: you craft those.
 
 [h2]Configuration[/h2]
@@ -133,7 +134,7 @@ both, and never copy the DLL out of its folder.
 
 [h2]Known limits[/h2]
 [list]
-[*]Placed mines and burning fires are not saved. They are gone after you quit or load.
+[*]Fires are not saved (placed mines are).
 [*]Mines hurt you too by default, like the game's own traps. They never arm while you are next to
 one. Turn off "Mines can hit you" if you'd rather they only hit hostiles.
 [*]Not tested in multiplayer.

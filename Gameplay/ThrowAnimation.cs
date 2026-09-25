@@ -235,6 +235,47 @@ namespace HumanHostExplosives
         }
 
         /// <summary>
+        /// Mine placement: the game's own right-hand "put item down" reach (Creature_Mgr
+        /// ._RightHandPutItemAnim - what vanilla plays when you set an item down, Creature:3316) on the
+        /// upper body, with the same IK hand-off and restore as the throw. Third person only (MOD_CONVENTIONS
+        /// 24): in first person the crouch alone carries it. Returns the clip length, or 0 if not played.
+        /// </summary>
+        internal static float PlayPlace(float speed)
+        {
+            Player_Input player = Player_Input.ins;
+            AnimationClip clip = Creature_Mgr.ins != null ? Creature_Mgr.ins._RightHandPutItemAnim : null;
+            if (player == null || clip == null || player._InFirstPerson || player._NotAllowPlay)
+            {
+                return 0f;
+            }
+            if (player._UseIK && player._IK != null)
+            {
+                player._IK._allowRightHandIK = false;
+            }
+            _hadWeaponIK = player._UseIK && player._hasMeleeOrRangedWeapon != 0;
+            if (_hadWeaponIK)
+            {
+                player.Lerp_RigIKs(0f, 0f);
+            }
+            if (player._UpperBodyLayer != null)
+            {
+                player._UpperBodyLayer.StartFade(1f, 0.15f);
+            }
+            player.forceUpdateAnim_UpLayer = true;
+            player.Play_Anim_UpLayer(clip, null, 0.15f, speed);
+            float duration = clip.length / Mathf.Max(0.1f, speed);
+            if (Plugin.Instance != null)
+            {
+                if (_restoreRoutine != null)
+                {
+                    Plugin.Instance.StopCoroutine(_restoreRoutine);
+                }
+                _restoreRoutine = Plugin.Instance.StartCoroutine(RestoreAfter(duration));
+            }
+            return duration;
+        }
+
+        /// <summary>
         /// Fires the borrowed melee swing whoosh partway through the throw, from the hand so it is
         /// positioned like the vanilla one (which plays at the weapon's transform).
         /// </summary>

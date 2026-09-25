@@ -150,6 +150,19 @@
       <HintPath>$(ManagedDir)\Sound_FX.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Mine persistence (save hook, save ID/seed) and the interact key. -->
+    <Reference Include="G_Save">
+      <HintPath>$(ManagedDir)\G_Save.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SaveData">
+      <HintPath>$(ManagedDir)\SaveData.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Player_HotKeys">
+      <HintPath>$(ManagedDir)\Player_HotKeys.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- HDRP: HDAdditionalLightData for the fire system's point light (Gameplay/FireFx.cs). -->
     <Reference Include="Unity.RenderPipelines.HighDefinition.Runtime">
       <HintPath>$(ManagedDir)\Unity.RenderPipelines.HighDefinition.Runtime.dll</HintPath>

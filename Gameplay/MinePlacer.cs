@@ -20,6 +20,19 @@ namespace HumanHostExplosives
 
         internal static bool TryPlace(ExplosiveDef def, C_Controller_Base player)
         {
+            if (!TryFindPlacement(def, player, out Vector3 point, out Quaternion rot))
+            {
+                return false;
+            }
+            PlacedMine.Create(def, point, rot, player);
+            return true;
+        }
+
+        /// <summary>The checks and the spot, without placing - so the kneel can play first.</summary>
+        internal static bool TryFindPlacement(ExplosiveDef def, C_Controller_Base player, out Vector3 point, out Quaternion rot)
+        {
+            point = Vector3.zero;
+            rot = Quaternion.identity;
             if (def == null || player == null || def.RuntimeMesh == null || def.RuntimeMaterial == null)
             {
                 return false;
@@ -37,7 +50,7 @@ namespace HumanHostExplosives
                 return false;
             }
 
-            if (!FindSpot(cam, player, out Vector3 point, out Vector3 normal))
+            if (!FindSpot(cam, player, out point, out Vector3 normal))
             {
                 Plugin.Toast("No room to place a mine here");
                 return false;
@@ -46,9 +59,7 @@ namespace HumanHostExplosives
             Vector3 flatFwd = player.transform.forward;
             flatFwd.y = 0f;
             float yaw = flatFwd.sqrMagnitude > 0.001f ? Quaternion.LookRotation(flatFwd).eulerAngles.y : 0f;
-            Quaternion rot = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, yaw, 0f);
-
-            PlacedMine.Create(def, point, rot, player);
+            rot = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, yaw, 0f);
             return true;
         }
 

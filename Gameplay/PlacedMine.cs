@@ -6,13 +6,16 @@ namespace HumanHostExplosives
 {
     /// <summary>
     /// A mine sitting on the ground. Arming -> Armed -> Triggered -> boom (or, improvised only,
-    /// a dud). All timing and polling is driven by MineManager from Plugin.Update, so a mine costs
+    /// a dud). In the default pressure-release mode "Triggered" means "something is standing on it":
+    /// it clicks, and blows the moment nothing is on it any more - no timer, like a real one. All timing and polling is driven by MineManager from Plugin.Update, so a mine costs
     /// nothing per frame of its own.
     ///
     /// Arming only completes once the player who placed it has stepped away (1.5x the trigger
     /// radius), so a mine can never go off under the feet of whoever just put it down.
     ///
-    /// Not saved: mines are lost on save/quit or scene change (no cheap safe persistence exists).
+    /// Saved with the game (MinePersistence), can be picked back up with the interact key, and goes
+    /// off when shot or hit: it carries a small solid collider on the Scene layer, which bullets
+    /// already collide with.
     /// </summary>
     internal class PlacedMine : MonoBehaviour
     {
@@ -25,6 +28,7 @@ namespace HumanHostExplosives
         internal float NextPoll;
         internal float DetonateAt;
         internal bool Dud;
+        internal bool Pressed; // pressure-release mode: stepped on, goes off when the weight comes off
 
         private ParticleSystem _led;
         private float _nextBlink;
@@ -32,12 +36,24 @@ namespace HumanHostExplosives
         internal bool Improvised => Def.Kind == ExplosiveKind.ImprovisedMine;
         internal float TriggerRadius => Improvised ? Plugin.ImprovisedMineTriggerRadius.Value : Plugin.MineTriggerRadius.Value;
 
-        internal static PlacedMine Create(ExplosiveDef def, Vector3 point, Quaternion rot, C_Controller_Base owner)
+        /// <param name="silent">Restored from a save: no placement beep, no log spam.</param>
+        internal static PlacedMine Create(ExplosiveDef def, Vector3 point, Quaternion rot, C_Controller_Base owner, bool silent = false)
         {
             var go = new GameObject("HHE_PlacedMine_" + def.Tag);
             go.transform.SetPositionAndRotation(point, rot);
             go.AddComponent<MeshFilter>().sharedMesh = def.RuntimeMesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = def.RuntimeMaterial;
+
+            // Something for bullets and the pickup ray to hit. Scene layer: bullets collide with it
+            // like any wall. Low and small, so characters step over it.
+            if (Global_Infos.ins != null)
+            {
+                go.layer = Global_Infos.ins.L_Scene;
+            }
+            Bounds b = def.RuntimeMesh.bounds;
+            BoxCollider box = go.AddComponent<BoxCollider>();
+            box.center = b.center;
+            box.size = Vector3.Max(b.size, new Vector3(0.05f, 0.03f, 0.05f));
 
             PlacedMine mine = go.AddComponent<PlacedMine>();
             mine.Def = def;
@@ -54,8 +70,11 @@ namespace HumanHostExplosives
                 mine._led = BuildLed(go.transform);
             }
             MineManager.Add(mine);
-            SmallSounds.PlayClick(point, 0.35f);
-            Plugin.Log.LogInfo($"[Mine] '{def.Tag}' placed at {point}, arms in {arm:F1}s.");
+            if (!silent)
+            {
+                SmallSounds.PlayBeep(point, 0.5f);
+                Plugin.Log.LogInfo($"[Mine] '{def.Tag}' placed at {point}, arms in {arm:F1}s.");
+            }
             return mine;
         }
 
@@ -191,6 +210,18 @@ namespace HumanHostExplosives
         internal static void Add(PlacedMine m) => Mines.Add(m);
         internal static void Remove(PlacedMine m) => Mines.Remove(m);
         internal static void Prune() => Mines.RemoveAll(m => m == null);
+        internal static IEnumerable<PlacedMine> All() => Mines;
+
+        /// <summary>Shot or struck: goes off a beat later, never a dud, whatever state it was in.</summary>
+        internal static void SetOffByHit(PlacedMine m)
+        {
+            if (m == null || m.Phase == PlacedMine.State.Done || (m.Phase == PlacedMine.State.Triggered && !m.Pressed))
+            {
+                return;
+            }
+            Trigger(m, Time.time, sympathetic: true);
+            Plugin.Log.LogInfo($"[Mine] '{m.Def.Tag}' was shot/hit.");
+        }
 
         internal static Material LedMaterial()
         {
@@ -239,6 +270,20 @@ namespace HumanHostExplosives
         {
             if (m.Phase == PlacedMine.State.Triggered)
             {
+                if (m.Pressed)
+                {
+                    if (now < m.NextPoll)
+                    {
+                        return;
+                    }
+                    m.NextPoll = now + 0.05f;
+                    if (FindPresser(m) == null)
+                    {
+                        Plugin.Log.LogInfo($"[Mine] '{m.Def.Tag}' released.");
+                        m.Explode();
+                    }
+                    return;
+                }
                 if (now >= m.DetonateAt)
                 {
                     m.Explode();
@@ -268,8 +313,19 @@ namespace HumanHostExplosives
                 return;
             }
 
+            C_Controller_Base presser = FindPresser(m);
+            if (presser != null)
+            {
+                Trigger(m, now, sympathetic: false);
+                Plugin.Log.LogInfo($"[Mine] '{m.Def.Tag}' {(m.Pressed ? "stepped on" : "triggered")} by {presser.name}.");
+            }
+        }
+
+        /// <summary>A living creature (or friendly, when allowed) within the trigger radius, else null.</summary>
+        private static C_Controller_Base FindPresser(PlacedMine m)
+        {
             int mask = Global_Infos.ins != null ? Global_Infos.ins.Mask_Creature.value : -1;
-            int n = Physics.OverlapSphereNonAlloc(pos + Vector3.up * 0.3f, m.TriggerRadius, Buffer, mask, QueryTriggerInteraction.Ignore);
+            int n = Physics.OverlapSphereNonAlloc(m.transform.position + Vector3.up * 0.3f, m.TriggerRadius, Buffer, mask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < n; i++)
             {
                 C_Controller_Base c = FireDamage.Resolve(Buffer[i]);
@@ -282,10 +338,9 @@ namespace HumanHostExplosives
                 {
                     continue;
                 }
-                Trigger(m, now, sympathetic: false);
-                Plugin.Log.LogInfo($"[Mine] '{m.Def.Tag}' triggered by {c.name}.");
-                return;
+                return c;
             }
+            return null;
         }
 
         private static void Trigger(PlacedMine m, float now, bool sympathetic)
@@ -293,11 +348,14 @@ namespace HumanHostExplosives
             m.Phase = PlacedMine.State.Triggered;
             if (sympathetic)
             {
+                m.Pressed = false; // a nearby blast sets off a stepped-on mine too
                 m.DetonateAt = now + Random.Range(0.15f, 0.3f);
                 return;
             }
+            m.Pressed = Plugin.MinePressureRelease.Value;
             float delay = m.Improvised ? Plugin.ImprovisedMineTriggerDelay.Value : Plugin.MineTriggerDelay.Value;
             m.DetonateAt = now + delay;
+            m.NextPoll = now + 0.05f;
             m.Dud = m.Improvised && Random.value < Plugin.ImprovisedMineDudChance.Value;
             SmallSounds.PlayClick(m.transform.position, 0.7f);
         }
@@ -317,7 +375,7 @@ namespace HumanHostExplosives
             float now = Time.time;
             foreach (PlacedMine m in Mines)
             {
-                if (m == null || m.Phase == PlacedMine.State.Triggered || m.Phase == PlacedMine.State.Done)
+                if (m == null || (m.Phase == PlacedMine.State.Triggered && !m.Pressed) || m.Phase == PlacedMine.State.Done)
                 {
                     continue;
                 }

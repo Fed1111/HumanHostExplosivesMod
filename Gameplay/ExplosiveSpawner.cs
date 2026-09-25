@@ -89,6 +89,19 @@ namespace HumanHostExplosives
                     break;
             }
 
+            // The spoon flying off - only the two grenades have one.
+            if (def.Kind == ExplosiveKind.Grenade || def.Kind == ExplosiveKind.ContactGrenade)
+            {
+                try
+                {
+                    SmallSounds.PlayRattle(go.transform.position, Plugin.GrenadeRattleVolume.Value);
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogError("[Explosive] rattle sound threw: " + ex);
+                }
+            }
+
             Plugin.Log.LogInfo($"[Explosive] '{def.Tag}' thrown.");
             return go;
         }

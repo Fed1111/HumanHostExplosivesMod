@@ -4,7 +4,9 @@ NEW: Molotov cocktail (hand-crafted). Shatters on impact into a pool of fire tha
 NEW: Contact grenade (Gun Workbench). Explodes on the first thing it hits. A slightly smaller charge than the standard grenade.
 NEW: Land mine (Gun Workbench). Equip it and tap LMB to put it on the ground where you are looking. It arms once you step away, blinks red, and blows up whatever comes close. Nearby blasts set mines off, so they chain.
 NEW: Improvised mine (hand-crafted, Trap tab). A nail-packed can on a spring trigger. Nail shrapnel like the nail bomb, a crude trigger that clicks before it blows, and it sometimes fails to go off.
-Mines hurt you too by default, like the game's own traps. They never arm while you are standing next to one. Turn this off with "Mines can hit you". Placed mines are not saved: they are gone after you quit or load.
+Placing a mine: your character kneels and sets it down (it beeps). Mines are SAVED with your game, can be picked back up (look at one and press your interact key), and go off when shot or hit. They never arm while you are standing next to one.
 RECIPES reworked for all six items, with amounts in line with the game's own recipes. Hand-made bombs no longer need Nitrate Powder (late-game): the nail bomb and improvised mine now use 20-25 rounds of ANY ammo, any caliber and any mix, pulled apart for the powder. Grenade: 3 Iron Ingot, 10 Gun Powder, 8 Spring, 10 Scrap Brass. Nail bomb: 25 Nails, 20 ammo, 10 Duct Tape, 10 Scrap Iron, now on the hand-craft Melee tab next to the Molotov. Existing configs are updated automatically if you never changed those values, and your old config is backed up first.
+Grenades and contact grenades make the spoon (safety lever) rattle when thrown.
+LOOT: explosives are rarer now - military containers only, and only about a third as common as other items there (Loot chance setting).
 Fix: an item whose art failed to load could still be added to loot tables.
 All new settings are in ModMenu and the Mod Manager.

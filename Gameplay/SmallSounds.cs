@@ -20,6 +20,8 @@ namespace HumanHostExplosives
         private static AudioClip _shatter;
         private static AudioClip _click;
         private static AudioClip _fizz;
+        private static AudioClip _beep;
+        private static AudioClip _rattle;
         private static AudioClip _crackle;
         private static AudioClip _campfire;
         private static bool _campfireSearched;
@@ -27,6 +29,8 @@ namespace HumanHostExplosives
         internal static void PlayShatter(Vector3 pos, float volume) => PlayAt(_shatter ?? (_shatter = BuildShatter()), pos, volume, 40f);
         internal static void PlayClick(Vector3 pos, float volume) => PlayAt(_click ?? (_click = BuildClick()), pos, volume, 18f);
         internal static void PlayFizz(Vector3 pos, float volume) => PlayAt(_fizz ?? (_fizz = BuildFizz()), pos, volume, 25f);
+        internal static void PlayBeep(Vector3 pos, float volume) => PlayAt(_beep ?? (_beep = BuildBeep()), pos, volume, 20f);
+        internal static void PlayRattle(Vector3 pos, float volume) => PlayAt(_rattle ?? (_rattle = BuildRattle()), pos, volume, 20f);
 
         /// <summary>Volume multiplier for a sound at pos heard from the camera, 0 beyond maxDistance.</summary>
         internal static float Falloff(Vector3 pos, float maxDistance)
@@ -187,6 +191,78 @@ namespace HumanHostExplosives
             }
             FadeTail(d, 0.01f);
             return Make("HHE_Click", d);
+        }
+
+        /// <summary>Mine placed: two short electronic beeps, the second higher.</summary>
+        private static AudioClip BuildBeep()
+        {
+            var d = new float[(int)(Rate * 0.34f)];
+            foreach (var (start, freq) in new[] { (0f, 2100.0), (0.16f, 2800.0) })
+            {
+                int s0 = (int)(start * Rate);
+                int len = (int)(Rate * 0.09f);
+                for (int i = 0; i < len && s0 + i < d.Length; i++)
+                {
+                    float t = i / (float)Rate;
+                    // Square-ish tone (a piezo buzzer), soft 4 ms edges so it doesn't click.
+                    float tone = Mathf.Sign((float)Math.Sin(2 * Math.PI * freq * t)) * 0.35f
+                               + (float)Math.Sin(2 * Math.PI * freq * t) * 0.25f;
+                    float edge = Mathf.Clamp01(Mathf.Min(i, len - i) / (Rate * 0.004f));
+                    d[s0 + i] += tone * edge;
+                }
+            }
+            return Make("HHE_Beep", d);
+        }
+
+        /// <summary>
+        /// Grenade thrown: the pin's ring tink, the spoon (safety lever) flipping off with a bright
+        /// "ping", then its short metallic rattle as it clatters away.
+        /// </summary>
+        private static AudioClip BuildRattle()
+        {
+            var rng = new System.Random(515);
+            var d = new float[(int)(Rate * 0.75f)];
+            void Strike(float at, double[] partials, float amp, float decay)
+            {
+                int s0 = (int)(at * Rate);
+                for (int i = 0; s0 + i < d.Length; i++)
+                {
+                    float t = i / (float)Rate;
+                    float env = Mathf.Exp(-t * decay);
+                    if (env < 0.002f)
+                    {
+                        break;
+                    }
+                    float v = (float)(rng.NextDouble() * 2 - 1) * 0.25f * Mathf.Exp(-t * 400f);
+                    for (int k = 0; k < partials.Length; k++)
+                    {
+                        v += (float)Math.Sin(2 * Math.PI * partials[k] * t + k) * (1f / (k + 1));
+                    }
+                    d[s0 + i] += v * amp * env;
+                }
+            }
+            Strike(0f, new[] { 4200.0, 6900.0 }, 0.25f, 60f);           // pin ring
+            Strike(0.06f, new[] { 3100.0, 5230.0, 7750.0 }, 0.5f, 28f);  // spoon ping
+            float at = 0.2f;
+            for (int j = 0; j < 7; j++)                                  // spoon rattling to a stop
+            {
+                Strike(at, new[] { 2600.0 + rng.Next(0, 900), 5100.0 + rng.Next(0, 1500) }, 0.32f * Mathf.Pow(0.78f, j), 55f);
+                at += 0.045f + (float)rng.NextDouble() * 0.05f;
+            }
+            float peak = 0f;
+            foreach (float v in d)
+            {
+                peak = Mathf.Max(peak, Mathf.Abs(v));
+            }
+            if (peak > 0.95f)
+            {
+                for (int i = 0; i < d.Length; i++)
+                {
+                    d[i] *= 0.95f / peak;
+                }
+            }
+            FadeTail(d, 0.03f);
+            return Make("HHE_GrenadeRattle", d);
         }
 
         /// <summary>A dud: a short hiss that sputters out.</summary>

@@ -48,7 +48,9 @@ namespace HumanHostExplosives.Registry
         // compiled default becomes. This fallback list is tried only when the user's configured
         // value matches nothing at all, so it self-heals that case without overriding anyone who
         // deliberately customized LootTags to something that actually does match.
-        private static readonly string[] FallbackTags = { "军用装备", "弹药", "Military Gear", "Ammo" };
+        // 0.3.0: military containers only. The Ammo tag rolls in far more containers, which made
+        // explosives common; Loot.LootChance thins them further (LootRarity).
+        private static readonly string[] FallbackTags = { "军用装备", "Military Gear" };
 
         /// <summary>
         /// Runs once, the first time a loot window is opened - by then Loot_Mgr.ins exists and its
@@ -148,11 +150,14 @@ namespace HumanHostExplosives.Registry
                     bool already = list.Exists(r => r != null && r.AssetGUID == def.IconGuid);
                     if (already)
                     {
+                        LootRarity.Record(def.IconGuid, refs);
                         continue;
                     }
 
                     list.Add(new AssetReference(def.IconGuid));
-                    IconsField.SetValue(entry, list.ToArray());
+                    AssetReference[] updated = list.ToArray();
+                    IconsField.SetValue(entry, updated);
+                    LootRarity.Record(def.IconGuid, updated);
                     // Structs live in the array by value - write the box back or the edit is lost.
                     array.SetValue(entry, i);
                     added++;
