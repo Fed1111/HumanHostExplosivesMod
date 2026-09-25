@@ -114,6 +114,35 @@ namespace HumanHostExplosives
             }
         }
 
+        /// <summary>
+        /// When a support under your own build is removed, the game hands every block that falls off INTACT
+        /// back to you (CheckFallen.Get_All_FallenGroups_AtOnce -> Get_Deleted_BI_Icon_Into_Bag_Belt). After a
+        /// demolition charge that turned into a "Backpack and belt are both full." per block. Blown-down blocks
+        /// land on the ground where they fell instead, like everything else the blast knocks loose.
+        /// </summary>
+        [HarmonyPatch(typeof(Build_System), nameof(Build_System.Get_Deleted_BI_Icon_Into_Bag_Belt))]
+        private static class FallenBlockPatch
+        {
+            private static bool Prefix(Build_Info BI)
+            {
+                if (Time.time > ExplosionDamage.DemolitionWindowUntil || !Plugin.ExplosionResourcesOnGround.Value ||
+                    BI == null || BI.ItemInfo == null || BI.ItemInfo._IconRef == null || string.IsNullOrEmpty(BI.ItemInfo._IconRef.AssetGUID) ||
+                    Item_Slot_Mgr.Ins == null || DropItemMI == null)
+                {
+                    return true;
+                }
+                try
+                {
+                    return !Drop(Item_Slot_Mgr.Ins, BI.ItemInfo._IconRef, 1, BI.transform.position + Vector3.up * 0.3f);
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log.LogWarning("[Drops] fallen block ground drop failed: " + ex.Message);
+                    return true;
+                }
+            }
+        }
+
         private static bool Drop(Item_Slot_Mgr mgr, AssetReference iconRef, int stack, Vector3 at)
         {
             AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(iconRef.AssetGUID);

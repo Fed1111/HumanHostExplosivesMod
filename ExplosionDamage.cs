@@ -282,6 +282,10 @@ namespace HumanHostExplosives
             {
                 ExplosionDrops.Scope--;
             }
+            if (ZoneQueue.Count == 0)
+            {
+                LogDemolitionQueueDone();
+            }
         }
 
         private static readonly Collider[] SweepBuffer = new Collider[64];
@@ -302,6 +306,7 @@ namespace HumanHostExplosives
             if (job.Demolish || job.Stage > 0)
             {
                 FastDemolitionSlicing.ActiveUntil = Time.time + 25f;   // covers the collapse that follows
+                DemolitionWindowUntil = Mathf.Max(DemolitionWindowUntil, Time.time + 45f);
             }
             if (job.Stage > 0)
             {
@@ -390,6 +395,10 @@ namespace HumanHostExplosives
                 {
                     Requeue(job);   // the pre-cut hasn't registered yet
                 }
+                else
+                {
+                    _st2NoCut++;
+                }
                 return;             // stage 3: the cell is already gone completely
             }
             StageShards.Clear();
@@ -406,6 +415,10 @@ namespace HumanHostExplosives
                 if (job.Stage == 2 && job.Tries < 20)
                 {
                     Requeue(job);   // shards get their colliders at the end of the async cut
+                }
+                else
+                {
+                    _st2NoShards++;
                 }
                 return;
             }
@@ -431,13 +444,28 @@ namespace HumanHostExplosives
                     if (c != best)
                     {
                         DropShard(smash, (MeshCollider)c, job.Bi);
+                        _st2Dropped++;
                     }
                 }
                 // Then the second stage on the last one: shows/fractures it, pays the cell's resources, and
                 // with the cell now empty its own tidy-up marks it fully gone in the save (hasShardsLeft 0)
                 // and runs the structure's fall check.
                 smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: true);
+                _st2Done++;
             }
+        }
+
+        private static int _st2Done, _st2Dropped, _st2NoCut, _st2NoShards;
+
+        private static void LogDemolitionQueueDone()
+        {
+            if (_st2Done + _st2NoCut + _st2NoShards == 0)
+            {
+                return;
+            }
+            Plugin.Log.LogInfo($"[Demolition] wall cutting finished: {_st2Done} section(s) broken ({_st2Dropped} pieces dropped), " +
+                               $"{_st2NoCut} never got cut, {_st2NoShards} cut but had no pieces to drop.");
+            _st2Done = _st2Dropped = _st2NoCut = _st2NoShards = 0;
         }
 
         private static System.Reflection.MethodInfo _fallShard;
@@ -513,6 +541,45 @@ namespace HumanHostExplosives
             return result;
         }
 
+        /// <summary>A demolition charge went off recently (its collapse can run on for a while after).</summary>
+        internal static float DemolitionWindowUntil;
+
+        /// <summary>
+        /// Diagnostic, one line per demolition blast: the three structure colliders nearest the charge -
+        /// what "the block the charge is on" actually is to the game.
+        /// </summary>
+        private static void LogWhatTheChargeSitsOn(Vector3 center, Collider[] cols)
+        {
+            try
+            {
+                var near = new List<(float D, Collider C)>();
+                foreach (Collider c in cols)
+                {
+                    if (c != null && c.GetComponentInParent<Build_Info>() != null)
+                    {
+                        near.Add(((c.ClosestPoint(center) - center).magnitude, c));
+                    }
+                }
+                near.Sort((a, b) => a.D.CompareTo(b.D));
+                var parts = new List<string>();
+                for (int i = 0; i < near.Count && i < 3; i++)
+                {
+                    Collider c = near[i].C;
+                    Build_Info bi = c.GetComponentInParent<Build_Info>();
+                    Battle_Info piece = c.GetComponent<Battle_Info>();
+                    parts.Add($"{near[i].D:F2}m '{c.name}' tag={c.tag} layer={c.gameObject.layer} enabled={c.enabled} " +
+                              $"block='{bi.name}' {bi._Type}/{bi._ItemType} spawnedPieces={bi.Spawned_BaIs.Count}" +
+                              (piece != null ? $" piece(smashed={piece.Smashed}, fallen={piece.Is_Fallen})" : "") +
+                              (IsShardPiece(c) ? " [cut shard]" : ""));
+                }
+                Plugin.Log.LogInfo("[Demolition] nearest to the charge: " + (parts.Count == 0 ? "nothing built" : string.Join(" | ", parts)));
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogInfo("[Demolition] nearest-block probe threw: " + ex.Message);
+            }
+        }
+
         private static int ApplyToBuildablesCore(Vector3 center, float radius, float damage, bool wholeBlocks)
         {
             _zoneBatch++;
@@ -531,6 +598,11 @@ namespace HumanHostExplosives
             // Mask_Build alone.
             int combinedMask = globalInfos.Mask_Build.value | globalInfos.Mask_Battle.value | globalInfos.Mask_Scene.value;
             Collider[] hitColliders = Physics.OverlapSphere(center, radius, combinedMask, QueryTriggerInteraction.Ignore);
+            if (wholeBlocks)
+            {
+                DemolitionWindowUntil = Time.time + 45f;
+                LogWhatTheChargeSitsOn(center, hitColliders);
+            }
             var directlyFoundColliders = new HashSet<Collider>(hitColliders);
             var processedBuildInfos = new HashSet<Build_Info>();
             var alreadyHitPieces = new HashSet<Battle_Info>();

@@ -38,7 +38,7 @@ namespace HumanHostExplosives
                 return true;
             }
             Vector3 player = Player_Input.ins != null ? Player_Input.ins.transform.position : Vector3.zero;
-            if (ExplosionDrops.Scope <= 0 && !ExplosionDrops.NearMark(player, 120f, out _))
+            if (ExplosionDrops.Scope <= 0 && Time.time > ExplosionDamage.DemolitionWindowUntil && !ExplosionDrops.NearMark(player, 120f, out _))
             {
                 return true;
             }
