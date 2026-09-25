@@ -350,7 +350,8 @@ namespace HumanHostExplosives
                 "matching how vanilla fires it at the start of a swing rather than on contact.");
 
             // Config versions: 0 = 0.2.2 and earlier, 1 = the first 0.3.0 dev build (set only the old
-            // MigratedDefaults030 flag - never published), 2 = 0.3.0 as released. A version NUMBER, not a
+            // MigratedDefaults030 flag - never published), 2 = recipe rework + mine tuning, 3 = loot moved to
+            // military containers only (LootTags). All unpublished dev steps; 0.3.0 ships at 3. A version NUMBER, not a
             // done/not-done flag: the flag made every later default change invisible to anyone who had
             // already run the first 0.3.0 build (their recipes stayed at 1-2 of each - 2026-09-25).
             MigratedDefaults030 = Config.Bind(
@@ -783,7 +784,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 2;
+        private const int CurrentConfigVersion = 3;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
