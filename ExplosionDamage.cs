@@ -202,7 +202,17 @@ namespace HumanHostExplosives
         /// still has spawnable shards is covered by the generic path instead.
         /// Returns the number of pieces/structures actually damaged.
         /// </summary>
-        internal static int ApplyToBuildables(Vector3 center, float radius, float damage)
+        /// <param name="wholeBlocks">
+        /// Demolition: every generic block the blast touches is broken COMPLETELY - all of its shards,
+        /// not just the ones in range, and regardless of their HP. Blocks otherwise go in two stages:
+        /// the blast breaks what it can reach, and the game's support check (TopOnHit.Begin_Check_Fall ->
+        /// Check_Fallen_For_Smash, fed only by shards that were actually smashed) collapses what is left
+        /// hanging - so a partly-damaged block would stand until hit again. Breaking the whole block lets
+        /// that same vanilla check bring down whatever it was holding up. Goes through
+        /// Process_Smashed_Shard with its guards ON (forceRun false), so nothing is broken mid-load or
+        /// mid-save.
+        /// </param>
+        internal static int ApplyToBuildables(Vector3 center, float radius, float damage, bool wholeBlocks = false)
         {
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
             Global_Infos globalInfos = Global_Infos.ins;
@@ -298,6 +308,16 @@ namespace HumanHostExplosives
                 // list was empty - a mismatched ancestor, not the true owner - so every piece was
                 // silently skipped despite clearly existing, being active, and being in range.
                 Battle_Info directPiece = col.GetComponentInParent<Battle_Info>();
+                if (wholeBlocks && directPiece != null && directPiece.FatherBI != null &&
+                    directPiece.FatherBI._ItemType != Build_Info.ItemType.ZoneSmashBI &&
+                    directPiece.FatherBI._ItemType != Build_Info.ItemType.SysHouseBigWall)
+                {
+                    if (processedBuildInfos.Add(directPiece.FatherBI))
+                    {
+                        hits += SmashWholeBlock(directPiece.FatherBI, topOnHit, alreadyHitPieces);
+                    }
+                    continue;
+                }
                 if (directPiece != null)
                 {
                     if (!directPiece.Is_Fallen && !directPiece.Smashed && alreadyHitPieces.Add(directPiece))
@@ -399,6 +419,12 @@ namespace HumanHostExplosives
                     continue;
                 }
 
+                if (wholeBlocks)
+                {
+                    hits += SmashWholeBlock(buildInfo, topOnHit, alreadyHitPieces);
+                    continue;
+                }
+
                 try
                 {
                     smashMgr.Spawn_BaIs_Under_BI(buildInfo);
@@ -477,6 +503,48 @@ namespace HumanHostExplosives
             }
 
             return hits;
+        }
+
+        /// <summary>Breaks every shard of one block (demolition) - see ApplyToBuildables' wholeBlocks.</summary>
+        private static int SmashWholeBlock(Build_Info buildInfo, TopOnHit topOnHit, HashSet<Battle_Info> alreadyHit)
+        {
+            if (topOnHit == null || Smash_Fallen_Manager.ins == null)
+            {
+                return 0;
+            }
+            try
+            {
+                Smash_Fallen_Manager.ins.Spawn_BaIs_Under_BI(buildInfo);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning($"[Explosion] Spawn_BaIs_Under_BI threw for '{buildInfo.name}': {ex.Message}");
+                return 0;
+            }
+            int n = 0;
+            // Copy first: smashing a shard can change the block's piece list.
+            var pieces = new List<Battle_Info>(buildInfo.Spawned_BaIs);
+            foreach (Battle_Info piece in pieces)
+            {
+                if (piece == null || piece.Is_Fallen || piece.Smashed || !alreadyHit.Add(piece))
+                {
+                    continue;
+                }
+                try
+                {
+                    topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true);
+                    n++;
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning($"[Explosion] demolishing '{piece.name}' threw: {ex.Message}");
+                }
+            }
+            if (Plugin.EnableDiagnostics.Value)
+            {
+                Plugin.Log.LogInfo($"[Explosion] demolished '{buildInfo.name}': {n} of {pieces.Count} shard(s) broken.");
+            }
+            return n > 0 ? 1 : 0;
         }
 
         /// <summary>

@@ -15,6 +15,9 @@ namespace HumanHostExplosives
         internal float ParticulateScale;
         internal float HitFlyForce;
         internal float Volume;
+        internal bool WholeBlocks;   // demolition: break every block it touches completely (ApplyToBuildables)
+        internal bool Heavy;         // sound bank: the deep, long "heavy" explosions
+        internal bool Metallic;      // sound bank: shrapnel blasts
     }
 
     /// <summary>
@@ -41,7 +44,7 @@ namespace HumanHostExplosives
             int buildableHits = 0;
             try
             {
-                buildableHits = ExplosionDamage.ApplyToBuildables(center, p.EffectRadius, p.BuildableDamage);
+                buildableHits = ExplosionDamage.ApplyToBuildables(center, p.EffectRadius, p.BuildableDamage, p.WholeBlocks);
             }
             catch (System.Exception ex)
             {
@@ -68,7 +71,7 @@ namespace HumanHostExplosives
 
             try
             {
-                ExplosionSound.Play(center, p.Volume);
+                ExplosionSound.Play(center, p.Volume, p.Metallic, p.Heavy);
             }
             catch (System.Exception ex)
             {
@@ -123,6 +126,8 @@ namespace HumanHostExplosives
             p.ParticulateScale = Plugin.GrenadeParticulateScale.Value * 1.4f;
             p.HitFlyForce = 1.6f;
             p.Volume = Plugin.ExplosionVolume.Value * 1.25f;
+            p.WholeBlocks = true;
+            p.Heavy = true;
             return p;
         }
 
@@ -140,6 +145,7 @@ namespace HumanHostExplosives
             p.ParticulateScale = Plugin.GrenadeParticulateScale.Value * 1.25f;
             p.HitFlyForce = 1.5f;
             p.Volume = Plugin.ExplosionVolume.Value * 1.1f;
+            p.Heavy = true;
             return p;
         }
     }

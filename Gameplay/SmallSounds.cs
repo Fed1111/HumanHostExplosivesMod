@@ -26,11 +26,30 @@ namespace HumanHostExplosives
         private static AudioClip _campfire;
         private static bool _campfireSearched;
 
-        internal static void PlayShatter(Vector3 pos, float volume) => PlayAt(_shatter ?? (_shatter = BuildShatter()), pos, volume, 40f);
+        internal static void PlayShatter(Vector3 pos, float volume)
+        {
+            if (!SoundBank.Play("molotov", pos, volume * 1.6f, 40f))
+            {
+                PlayAt(_shatter ?? (_shatter = BuildShatter()), pos, volume, 40f);
+            }
+        }
         internal static void PlayClick(Vector3 pos, float volume) => PlayAt(_click ?? (_click = BuildClick()), pos, volume, 18f);
         internal static void PlayFizz(Vector3 pos, float volume) => PlayAt(_fizz ?? (_fizz = BuildFizz()), pos, volume, 25f);
-        internal static void PlayBeep(Vector3 pos, float volume) => PlayAt(_beep ?? (_beep = BuildBeep()), pos, volume, 20f);
-        internal static void PlayRattle(Vector3 pos, float volume) => PlayAt(_rattle ?? (_rattle = BuildRattle()), pos, volume, 20f);
+        internal static void PlayBeep(Vector3 pos, float volume)
+        {
+            if (!SoundBank.Play("beep", pos, volume, 20f, 0.02f))
+            {
+                PlayAt(_beep ?? (_beep = BuildBeep()), pos, volume, 20f);
+            }
+        }
+
+        internal static void PlayRattle(Vector3 pos, float volume)
+        {
+            if (!SoundBank.Play("spoon", pos, volume, 20f))
+            {
+                PlayAt(_rattle ?? (_rattle = BuildRattle()), pos, volume, 20f);
+            }
+        }
 
         /// <summary>Volume multiplier for a sound at pos heard from the camera, 0 beyond maxDistance.</summary>
         internal static float Falloff(Vector3 pos, float maxDistance)

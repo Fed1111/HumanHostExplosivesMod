@@ -128,7 +128,8 @@ namespace HumanHostExplosives
                 _icon = iconDef.RuntimeIconSprite.texture;
             }
 
-            float x = 22f, y = Screen.height - 150f;
+            // Middle of the left edge - clear of the hotbar and the game's own bottom-left HUD.
+            float x = 22f, y = Screen.height * 0.5f - 38f;
             GUI.color = new Color(0f, 0f, 0f, 0.45f);
             GUI.DrawTexture(new Rect(x - 6f, y - 6f, 300f, 76f), Texture2D.whiteTexture);
             GUI.color = Color.white;

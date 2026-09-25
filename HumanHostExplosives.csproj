@@ -215,6 +215,11 @@
     </ItemGroup>
     <Copy SourceFiles="@(DemoAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\DemoCharge" ContinueOnError="true" />
     <Copy SourceFiles="@(APAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\APCharge" ContinueOnError="true" />
+    <!-- Picked sound takes, one folder per category (Gameplay/SoundBank.cs). Keeps the subfolders. -->
+    <ItemGroup>
+      <SoundAssets Include="$(MSBuildProjectDirectory)\Assets\Sounds\**\*.wav" Exclude="$(MSBuildProjectDirectory)\Assets\Sounds\_*\**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SoundAssets)" DestinationFiles="@(SoundAssets->'$(BepInExDir)\plugins\$(AssemblyName)\Sounds\%(RecursiveDir)%(Filename)%(Extension)')" ContinueOnError="true" />
     <!-- Icon of the "any ammunition" recipe material (Registry/AnyAmmoMaterial.cs). -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\AnyAmmo\any_ammo_icon.png" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\AnyAmmo" ContinueOnError="true" />
     <Copy SourceFiles="@(AnimAssets)"

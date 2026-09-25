@@ -29,8 +29,17 @@ namespace HumanHostExplosives
         /// drier blast whose tail is a scatter of sharp high-frequency taps - fragments striking
         /// hard surfaces - instead of the grenade's low concussive echo.
         /// </summary>
-        internal static void Play(Vector3 position, float volume = 1f, bool metallic = false)
+        internal static void Play(Vector3 position, float volume = 1f, bool metallic = false, bool heavy = false)
         {
+            // Recorded takes first (Sounds/<category>/*.wav, picked in-game - SoundBank): a random one
+            // per blast, heard later and quieter with distance. The synthesis below is the fallback.
+            string category = heavy ? "heavy" : metallic ? "shrapnel" : "grenade";
+            if (SoundBank.Play(category, position, volume * 0.35f, 400f, 0.07f, distanceDelay: true)
+                || (heavy && SoundBank.Play("grenade", position, volume * 0.35f, 400f, 0.07f, distanceDelay: true)))
+            {
+                return;
+            }
+
             AudioClip clip = GetOrCreateClip(metallic);
             if (clip == null)
             {
@@ -50,7 +59,8 @@ namespace HumanHostExplosives
             source.clip = clip;
             source.spatialBlend = 0f;
             source.volume = volume;
-            source.pitch = 1f;
+            // One synthesized clip per type - vary the pitch so repeats don't sound identical.
+            source.pitch = UnityEngine.Random.Range(0.9f, 1.1f);
             source.loop = false;
             source.playOnAwake = false;
             source.Play();
