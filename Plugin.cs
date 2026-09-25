@@ -496,6 +496,10 @@ namespace HumanHostExplosives
 
             _harmony = new Harmony(Guid);
             _harmony.PatchAll();
+            AnyAmmoMaterial.AddExtraGuids(Config.Bind("Loot", "ExtraAmmoGuids", "",
+                "Extra item GUIDs (comma-separated) that count as 'any ammunition' in recipes - for ammo added by other " +
+                "mods' guns. Vanilla loose rounds and crafted rounds of every caliber are already included.").Value);
+            AnyAmmoMaterial.Apply(_harmony);
 
             foreach (ExplosiveDef def in Defs)
             {
@@ -947,9 +951,10 @@ namespace HumanHostExplosives
             // Manufactured: forged iron casing, Gun_Powder (a Chemistry product, not loot-findable)
             // as filler, and a Spring for the fuse lever - so it lands as a real mid-game craft. 0.3.0
             // replaced the Duct Tape binding with the spring: tape is the improvised items' material.
-            AddRecipeSlot(grenade, "Grenade", 1, MatForgedIron, 2, "Iron Ingot - casing");
-            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 5, "Gun Powder - filler", 10);
-            AddRecipeSlot(grenade, "Grenade", 3, MatSpring, 1, "Spring - fuse lever", 3, MatDuctTape);
+            AddRecipeSlot(grenade, "Grenade", 1, MatForgedIron, 3, "Iron Ingot - casing", new[] { 2 });
+            AddRecipeSlot(grenade, "Grenade", 2, MatGunPowder, 10, "Gun Powder - filler", new[] { 5 });
+            AddRecipeSlot(grenade, "Grenade", 3, MatSpring, 8, "Spring - fuse lever", new[] { 3 }, MatDuctTape);
+            AddRecipeSlot(grenade, "Grenade", 4, MatScrapBrass, 10, "Scrap Brass - fuse and pin");
 
             var contact = new ExplosiveDef
             {
@@ -972,10 +977,10 @@ namespace HumanHostExplosives
                 CraftNum = CraftCountConfig("ContactGrenade"),
                 HandOffset = HandOffsetConfig("ContactGrenade", "Same mesh as the grenade, so the grenade's tuned value."),
             };
-            AddRecipeSlot(contact, "ContactGrenade", 1, MatForgedIron, 2, "Iron Ingot - casing");
-            AddRecipeSlot(contact, "ContactGrenade", 2, MatGunPowder, 4, "Gun Powder - filler");
-            AddRecipeSlot(contact, "ContactGrenade", 3, MatSpring, 1, "Spring - striker");
-            AddRecipeSlot(contact, "ContactGrenade", 4, MatScrapBrass, 1, "Scrap Brass - impact cap");
+            AddRecipeSlot(contact, "ContactGrenade", 1, MatForgedIron, 3, "Iron Ingot - casing");
+            AddRecipeSlot(contact, "ContactGrenade", 2, MatGunPowder, 8, "Gun Powder - filler");
+            AddRecipeSlot(contact, "ContactGrenade", 3, MatSpring, 10, "Spring - striker");
+            AddRecipeSlot(contact, "ContactGrenade", 4, MatScrapBrass, 15, "Scrap Brass - impact cap");
 
             var nailbomb = new ExplosiveDef
             {
@@ -1008,12 +1013,13 @@ namespace HumanHostExplosives
                 // re-tuning one axis at a time, and the axes do NOT behave intuitively.
                 HandOffset = HandOffsetConfig("Nailbomb", "Copied from the grenade's tuned value."),
             };
-            // Crude on purpose: Nitrate_Powder (the unrefined precursor, needed in quantity) instead of
-            // Gun_Powder, a scrap-iron pipe, and tape.
-            AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 5, "Nails - the shrapnel", 8);
-            AddRecipeSlot(nailbomb, "Nailbomb", 2, MatNitratePowder, 5, "Nitrate Powder - crude filler");
-            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 2, "Duct Tape - binding", 3);
-            AddRecipeSlot(nailbomb, "Nailbomb", 4, MatScrapIron, 1, "Scrap Iron - the pipe");
+            // Crude and early-game on purpose: the charge is powder pulled out of scavenged rounds (ANY
+            // ammo - see AnyAmmoMaterial), not Nitrate/Gun Powder, which need the late Biochemical
+            // bench and biome-5/6 nitrate ore. Bombs cost bullets: that is the trade-off.
+            AddRecipeSlot(nailbomb, "Nailbomb", 1, MatNails, 25, "Nails - the shrapnel", new[] { 5, 8 });
+            AddRecipeSlot(nailbomb, "Nailbomb", 2, MatAnyAmmo, 20, "any ammunition - pulled for its powder", new[] { 5 }, MatNitratePowder);
+            AddRecipeSlot(nailbomb, "Nailbomb", 3, MatDuctTape, 10, "Duct Tape - binding", new[] { 3 });
+            AddRecipeSlot(nailbomb, "Nailbomb", 4, MatScrapIron, 10, "Scrap Iron - the pipe");
 
             var molotov = new ExplosiveDef
             {
@@ -1041,10 +1047,10 @@ namespace HumanHostExplosives
                 HandOffset = HandOffsetConfig("Molotov", "Starts at the grenade's tuned value; the bottle is taller, so Y may want tuning.",
                                               new Vector3(0f, 0f, -0.3f)),
             };
-            AddRecipeSlot(molotov, "Molotov", 1, MatGlass, 1, "Glass - the bottle", 1, "");
-            AddRecipeSlot(molotov, "Molotov", 2, MatAlcohol, 2, "Alcohol - the fuel", 1, "");
-            AddRecipeSlot(molotov, "Molotov", 3, MatTornCloth, 1, "Torn Cloth - the wick", 1, "");
-            AddRecipeSlot(molotov, "Molotov", 4, MatTreeSap, 1, "Tree Sap - makes the fire stick");
+            // Alcohol comes in its own bottle, so no Glass (which needs sand from the late biomes).
+            AddRecipeSlot(molotov, "Molotov", 1, MatAlcohol, 2, "Alcohol - fuel, and the bottle", new[] { 1 }, "");
+            AddRecipeSlot(molotov, "Molotov", 2, MatTornCloth, 10, "Torn Cloth - the wick", new[] { 1 }, "");
+            AddRecipeSlot(molotov, "Molotov", 3, MatTreeSap, 10, "Tree Sap - makes the fire stick", new[] { 1 }, "");
 
             var improvised = new ExplosiveDef
             {
@@ -1068,10 +1074,10 @@ namespace HumanHostExplosives
                 CraftNum = CraftCountConfig("ImprovisedMine"),
                 HandOffset = HandOffsetConfig("ImprovisedMine", "Starts at the grenade's tuned value."),
             };
-            AddRecipeSlot(improvised, "ImprovisedMine", 1, MatScrapIron, 3, "Scrap Iron - the can");
-            AddRecipeSlot(improvised, "ImprovisedMine", 2, MatNails, 6, "Nails - the shrapnel");
-            AddRecipeSlot(improvised, "ImprovisedMine", 3, MatNitratePowder, 6, "Nitrate Powder - crude filler");
-            AddRecipeSlot(improvised, "ImprovisedMine", 4, MatSpring, 1, "Spring - the trigger");
+            AddRecipeSlot(improvised, "ImprovisedMine", 1, MatScrapIron, 15, "Scrap Iron - the can");
+            AddRecipeSlot(improvised, "ImprovisedMine", 2, MatNails, 40, "Nails - the shrapnel");
+            AddRecipeSlot(improvised, "ImprovisedMine", 3, MatAnyAmmo, 25, "any ammunition - pulled for its powder");
+            AddRecipeSlot(improvised, "ImprovisedMine", 4, MatSpring, 10, "Spring - the trigger");
 
             var mine = new ExplosiveDef
             {
@@ -1094,10 +1100,10 @@ namespace HumanHostExplosives
                 CraftNum = CraftCountConfig("Mine"),
                 HandOffset = HandOffsetConfig("Mine", "Starts at the grenade's tuned value."),
             };
-            AddRecipeSlot(mine, "Mine", 1, MatForgedSteel, 2, "Steel Ingot - casing");
-            AddRecipeSlot(mine, "Mine", 2, MatGunPowder, 8, "Gun Powder - charge");
-            AddRecipeSlot(mine, "Mine", 3, MatSpring, 2, "Spring - pressure plate");
-            AddRecipeSlot(mine, "Mine", 4, MatElectricalWire, 1, "Electrical Wire - fuze");
+            AddRecipeSlot(mine, "Mine", 1, MatForgedSteel, 4, "Steel Ingot - casing");
+            AddRecipeSlot(mine, "Mine", 2, MatGunPowder, 15, "Gun Powder - charge");
+            AddRecipeSlot(mine, "Mine", 3, MatSpring, 15, "Spring - pressure plate");
+            AddRecipeSlot(mine, "Mine", 4, MatElectricalWire, 2, "Electrical Wire - fuze");
 
             var defs = new List<ExplosiveDef>();
             AddIfReady(defs, grenade, true);
@@ -1164,26 +1170,28 @@ namespace HumanHostExplosives
         internal const string MatElectricalWire = "2c3ee09ccf9a2684690411a04731acbe"; // Recipes/Tool/Electrical_Wire
         internal const string MatTornCloth = "88e47f080fb36644c81bb2ff11a8bb9c";    // Recipes/Cloth/Torn_Cloth
         internal const string MatAlcohol = "6665f9904b4a44246a556e7dfca770b0";      // Recipes/Medical/Alcohol
+        internal const string MatAnyAmmo = AnyAmmoMaterial.Guid;                    // mod-defined: any loose rounds
 
         /// <summary>
-        /// Binds one recipe slot. oldCount / oldGuid are the 0.2.x defaults this slot is migrated FROM
-        /// (null = the slot is unchanged or new, nothing to migrate).
+        /// Binds one recipe slot. oldCounts / oldGuid are the published (0.2.x and earlier) defaults this
+        /// slot is migrated FROM (null = the slot is new, nothing to migrate).
         /// </summary>
         private void AddRecipeSlot(ExplosiveDef def, string section, int slotNumber,
                                    string defaultGuid, int defaultCount, string what,
-                                   int? oldCount = null, string oldGuid = null)
+                                   int[] oldCounts = null, string oldGuid = null)
         {
             var guidDesc = new ConfigDescription(
                 $"Material #{slotNumber}'s icon GUID for this recipe (default: {what}). " +
-                "Leave empty to skip this slot. GUIDs can be decoded offline from StreamingAssets/aa/catalog.json - " +
+                $"Leave empty to skip this slot. {AnyAmmoMaterial.Guid} means ANY loose ammunition (any caliber, any mix). " +
+                "GUIDs can be decoded offline from StreamingAssets/aa/catalog.json - " +
                 "see tools/catalog_guids.py in the audit repo - or found in-game with Diagnostics.EnableItemPickupLogger.");
             string guid = oldGuid != null
                 ? BindMigrated(section, $"RecipeMaterial{slotNumber}Guid", defaultGuid, guidDesc, oldGuid).Value
                 : Config.Bind(section, $"RecipeMaterial{slotNumber}Guid", defaultGuid, guidDesc).Value;
 
             var countDesc = new ConfigDescription($"How many of material #{slotNumber} the recipe needs.");
-            int count = oldCount.HasValue
-                ? BindMigrated(section, $"RecipeMaterial{slotNumber}Count", defaultCount, countDesc, oldCount.Value).Value
+            int count = oldCounts != null
+                ? BindMigrated(section, $"RecipeMaterial{slotNumber}Count", defaultCount, countDesc, oldCounts).Value
                 : Config.Bind(section, $"RecipeMaterial{slotNumber}Count", defaultCount, countDesc).Value;
 
             if (!string.IsNullOrEmpty(guid))

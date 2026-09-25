@@ -108,13 +108,14 @@ distraction. Lure them onto a mine.
 [/list]
 
 [h2]Recipes[/h2]
-[b]Grenade[/b]: 2 Iron Ingot, 5 Gun Powder, 1 Spring
-[b]Contact grenade[/b]: 2 Iron Ingot, 4 Gun Powder, 1 Spring, 1 Scrap Brass
-[b]Land mine[/b]: 2 Steel Ingot, 8 Gun Powder, 2 Spring, 1 Electrical Wire
-[b]Molotov[/b]: 1 Glass, 2 Alcohol, 1 Torn Cloth, 1 Tree Sap
-[b]Nail bomb[/b]: 5 Nails, 5 Nitrate Powder, 2 Duct Tape, 1 Scrap Iron
-[b]Improvised mine[/b]: 3 Scrap Iron, 6 Nails, 6 Nitrate Powder, 1 Spring
-The hand-crafted items use junk and Nitrate Powder. The Gun Workbench items need refined metal and
+[b]Grenade[/b]: 3 Iron Ingot, 10 Gun Powder, 8 Spring, 10 Scrap Brass
+[b]Contact grenade[/b]: 3 Iron Ingot, 8 Gun Powder, 10 Spring, 15 Scrap Brass
+[b]Land mine[/b]: 4 Steel Ingot, 15 Gun Powder, 15 Spring, 2 Electrical Wire
+[b]Molotov[/b]: 2 Alcohol, 10 Torn Cloth, 10 Tree Sap
+[b]Nail bomb[/b]: 25 Nails, 20 ammo (any kind), 10 Duct Tape, 10 Scrap Iron
+[b]Improvised mine[/b]: 15 Scrap Iron, 40 Nails, 25 ammo (any kind), 10 Spring
+The hand-made items are early-game: their charge is powder pulled out of scavenged rounds - any
+caliber, any mix - so a bomb costs you bullets. The Gun Workbench items need refined metal and
 Gun Powder.
 
 [h2]Loot[/h2]

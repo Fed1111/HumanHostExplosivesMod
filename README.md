@@ -119,12 +119,19 @@ intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no
 
 | Item | Kind | Bench / tab | Recipe |
 |---|---|---|---|
-| Grenade | thrown, 3 s fuse | GunWorkbench / Ammo | 2 Iron Ingot, 5 Gun Powder, 1 Spring |
-| Contact grenade | thrown, impact fuse | GunWorkbench / Ammo | 2 Iron Ingot, 4 Gun Powder, 1 Spring, 1 Scrap Brass |
-| Land mine | placed | GunWorkbench / Ammo | 2 Steel Ingot, 8 Gun Powder, 2 Spring, 1 Electrical Wire |
-| Molotov | thrown, fire | HandMade / Melee | 1 Glass, 2 Alcohol, 1 Torn Cloth, 1 Tree Sap |
-| Nail bomb | thrown, shrapnel | HandMade / Melee | 5 Nails, 5 Nitrate Powder, 2 Duct Tape, 1 Scrap Iron |
-| Improvised mine | placed, shrapnel | HandMade / Trap | 3 Scrap Iron, 6 Nails, 6 Nitrate Powder, 1 Spring |
+| Grenade | thrown, 3 s fuse | GunWorkbench / Ammo | 3 Iron Ingot, 10 Gun Powder, 8 Spring, 10 Scrap Brass |
+| Contact grenade | thrown, impact fuse | GunWorkbench / Ammo | 3 Iron Ingot, 8 Gun Powder, 10 Spring, 15 Scrap Brass |
+| Land mine | placed | GunWorkbench / Ammo | 4 Steel Ingot, 15 Gun Powder, 15 Spring, 2 Electrical Wire |
+| Molotov | thrown, fire | HandMade / Melee | 2 Alcohol, 10 Torn Cloth, 10 Tree Sap |
+| Nail bomb | thrown, shrapnel | HandMade / Melee | 25 Nails, 20 any ammo, 10 Duct Tape, 10 Scrap Iron |
+| Improvised mine | placed, shrapnel | HandMade / Trap | 15 Scrap Iron, 40 Nails, 25 any ammo, 10 Spring |
+
+Counts are scaled to vanilla (guns take 8-20 Springs, 10 Duct Tape). Nitrate/Gun Powder need the
+Biochemical bench and biome-5/6 nitrate ore, so the hand-made items use **any ammunition** instead
+(`Registry/AnyAmmoMaterial.cs`): a mod-registered, icon-only material, plus a transpiler over every
+`Craft_Items` method that compares item GUIDs, which makes it match all 42 vanilla ammo GUIDs (7
+looted `*_AmmoBox_Icon` rounds + 35 crafted `BHC_*`; arrows excluded). Extra GUIDs for modded guns go
+in `Loot.ExtraAmmoGuids`.
 
 - **Fire system** (`Gameplay/FirePool.cs`, `BurnManager.cs`, `FireDamage.cs`, `FireFx.cs`). A pool
   ticks damage every `FireTickSeconds` and sets alight anyone standing in it. A burning character

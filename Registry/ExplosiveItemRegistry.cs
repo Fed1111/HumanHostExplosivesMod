@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -178,13 +179,34 @@ namespace HumanHostExplosives.Registry
                     Plugin.Log.LogInfo($"[Registry] built '{def.Tag}' (icon={def.IconGuid}, model={def.ModelGuid})");
                 }
 
+                // The "any ammunition" recipe material: an icon-only item nobody can own, which the
+                // craft window's material slot resolves for its picture and name (UI:698-704).
+                if (!AnyAmmoMaterial.Failed && _defs.Count > 0)
+                {
+                    ExplosiveDef ammo = AnyAmmoMaterialDef(_defs[0].ModelGuid);
+                    if (ammo.TryLoadIconOnly())
+                    {
+                        GameObject ammoIcon = BuildIcon(iconTemplate, ammo);
+                        ammoIcon.GetComponent<Icon_Info>()._Can_Stack = true;
+                        ammoIcon.GetComponent<Icon_Info>().MaxStack = 500;
+                        registered.Add(ammo.IconGuid, ammoIcon);
+                        staged.Add(ammoIcon);
+                        AnyAmmoMaterial.Registered = true;
+                    }
+                    else
+                    {
+                        Plugin.Log.LogWarning("[AnyAmmo] icon missing (AnyAmmo/any_ammo_icon.png); recipes that use any ammunition are dropped.");
+                    }
+                }
+
                 foreach (KeyValuePair<string, GameObject> kv in registered)
                 {
                     ExplosiveAddressablesInterceptor.Items.Add(kv.Key, kv.Value);
                 }
 
                 _built = true;
-                Plugin.Log.LogInfo($"[Registry] {registered.Count / 2} explosive item(s) registered.");
+                Plugin.Log.LogInfo($"[Registry] {_defs.Count(d => d.RuntimeIconInfo != null)} explosive item(s) registered" +
+                                   (AnyAmmoMaterial.Registered ? ", plus the 'any ammunition' recipe material." : "."));
 
                 // Load the borrowed fire visuals now, during world load, not on the first throw.
                 try
@@ -210,6 +232,21 @@ namespace HumanHostExplosives.Registry
                 Plugin.Log.LogError("[Registry] build aborted and rolled back: " + ex);
                 return false;
             }
+        }
+
+        private static ExplosiveDef AnyAmmoMaterialDef(string modelGuid)
+        {
+            return new ExplosiveDef
+            {
+                Tag = "HHX_AnyAmmo",
+                IconGuid = AnyAmmoMaterial.Guid,
+                ModelGuid = modelGuid,
+                IconPngFileName = "AnyAmmo/any_ammo_icon.png",
+                MaxStack = 500,
+                TooltipName = "Ammunition (any)",
+                TooltipType = "Material",
+                TooltipInstruction = "Loose rounds of any caliber, broken down for their powder. Any mix of ammo in your inventory counts.",
+            };
         }
 
         private static GameObject LoadByGuid(string guid, string label)

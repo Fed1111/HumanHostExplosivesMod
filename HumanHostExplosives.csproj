@@ -196,6 +196,8 @@
     <Copy SourceFiles="@(ContactAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ContactGrenade" ContinueOnError="true" />
     <Copy SourceFiles="@(MineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Mine" ContinueOnError="true" />
     <Copy SourceFiles="@(ImprovisedMineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ImprovisedMine" ContinueOnError="true" />
+    <!-- Icon of the "any ammunition" recipe material (Registry/AnyAmmoMaterial.cs). -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\AnyAmmo\any_ammo_icon.png" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\AnyAmmo" ContinueOnError="true" />
     <Copy SourceFiles="@(AnimAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Assets\Anim"
           ContinueOnError="true" />

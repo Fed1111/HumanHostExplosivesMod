@@ -95,6 +95,12 @@ def check_icon(item, path):
         err(item, f"icon subject too small {box}")
 
 
+any_ammo = os.path.join(ASSETS, "AnyAmmo", "any_ammo_icon.png")
+if not os.path.isfile(any_ammo):
+    err("AnyAmmo", "missing " + any_ammo)
+else:
+    check_icon("AnyAmmo", any_ammo)
+
 sizes = {}
 for item, (obj, tex, icon) in ITEMS.items():
     paths = [os.path.join(ASSETS, p) for p in (obj, tex, icon)]

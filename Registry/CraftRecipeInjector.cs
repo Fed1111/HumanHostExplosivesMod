@@ -165,12 +165,19 @@ namespace HumanHostExplosives.Registry
 
         private static object BuildRecipeEntry(ExplosiveDef def)
         {
-            Array mats = Array.CreateInstance(PerMatDataType, def.Recipe.Count);
-            for (int i = 0; i < def.Recipe.Count; i++)
+            // The "any ammunition" material only exists once its icon item registered and the craft
+            // compare patch applied; without both it would be an unresolvable GUID in the craft window.
+            var recipe = def.Recipe.FindAll(r => r.Guid != AnyAmmoMaterial.Guid || AnyAmmoMaterial.Registered);
+            if (recipe.Count != def.Recipe.Count)
+            {
+                Plugin.Log.LogWarning($"[Registry] '{def.Tag}': 'any ammunition' unavailable - recipe injected without it.");
+            }
+            Array mats = Array.CreateInstance(PerMatDataType, recipe.Count);
+            for (int i = 0; i < recipe.Count; i++)
             {
                 object mat = Activator.CreateInstance(PerMatDataType);
-                MatIconField.SetValue(mat, new AssetReference(def.Recipe[i].Guid));
-                MatNeedCountField.SetValue(mat, def.Recipe[i].Count);
+                MatIconField.SetValue(mat, new AssetReference(recipe[i].Guid));
+                MatNeedCountField.SetValue(mat, recipe[i].Count);
                 mats.SetValue(mat, i);
             }
 

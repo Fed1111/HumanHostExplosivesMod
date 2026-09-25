@@ -114,6 +114,24 @@ namespace HumanHostExplosives.Registry
                 && (string.IsNullOrEmpty(IconPngFileName) || File.Exists(AssetPaths.Resolve(IconPngFileName)));
         }
 
+        /// <summary>For icon-only items (the "any ammunition" recipe material): just the 2D icon.</summary>
+        internal bool TryLoadIconOnly()
+        {
+            if (RuntimeIconSprite != null)
+            {
+                return true;
+            }
+            string iconPath = AssetPaths.Resolve(IconPngFileName);
+            if (!File.Exists(iconPath))
+            {
+                return false;
+            }
+            Texture2D tex = TextureLoader.LoadPng(iconPath);
+            RuntimeIconSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            RuntimeIconSprite.name = Tag + "_Icon";
+            return true;
+        }
+
         internal bool TryLoadMeshAndMaterial()
         {
             if (RuntimeMesh != null && RuntimeMaterial != null)
