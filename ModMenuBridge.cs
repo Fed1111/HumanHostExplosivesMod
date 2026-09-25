@@ -142,6 +142,28 @@ namespace HumanHostExplosives
                 new ModMenu.ModMenuSetting(Plugin.MinePlaceDistance, "Placing distance (m)", "Mines",
                     "How far ahead of you a mine can be placed."),
 
+                // --- Remote charges ---
+                new ModMenu.ModMenuSetting(Plugin.EnableDemoCharge, "Enable demolition charge", "Remote charges",
+                    "Register the remote demolition charge." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.EnableAPCharge, "Enable anti-personnel charge", "Remote charges",
+                    "Register the remote directional anti-personnel charge." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.DetonateKey, "Detonate key", "Remote charges",
+                    "Sets off every armed charge in range." + KeyNote),
+                new ModMenu.ModMenuSetting(Plugin.DetonateRange, "Detonate range (m)", "Remote charges",
+                    "How far from you a charge can be set off."),
+                new ModMenu.ModMenuSetting(Plugin.ShowRemoteHud, "Show remote widget", "Remote charges",
+                    "Show the charge count and ARMING / READY while charges are placed."),
+                new ModMenu.ModMenuSetting(Plugin.DemoBuildableDamage, "Demolition structure damage", "Remote charges",
+                    "Damage to walls and blocks - what the demolition charge is for."),
+                new ModMenu.ModMenuSetting(Plugin.DemoDamage, "Demolition damage", "Remote charges",
+                    "Damage to creatures at the centre of a demolition charge."),
+                new ModMenu.ModMenuSetting(Plugin.APDamage, "Anti-personnel damage", "Remote charges",
+                    "Fragment damage in front of an anti-personnel charge."),
+                new ModMenu.ModMenuSetting(Plugin.APRange, "Anti-personnel range (m)", "Remote charges",
+                    "How far the fragments fly."),
+                new ModMenu.ModMenuSetting(Plugin.APConeAngle, "Anti-personnel spread", "Remote charges",
+                    "Half-angle of the fragment fan in front of the charge."),
+
                 // --- Throwing ---
                 new ModMenu.ModMenuSetting(Plugin.MinThrowSpeed, "Tap throw speed (m/s)", "Throwing",
                     "Throw speed for a tap with no hold."),

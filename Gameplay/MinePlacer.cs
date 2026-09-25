@@ -56,7 +56,9 @@ namespace HumanHostExplosives
                 return false;
             }
 
-            Vector3 flatFwd = player.transform.forward;
+            // Face where the player is LOOKING (camera), not where the body happens to point - the
+            // anti-personnel charge fires out of its front.
+            Vector3 flatFwd = cam.forward;
             flatFwd.y = 0f;
             float yaw = flatFwd.sqrMagnitude > 0.001f ? Quaternion.LookRotation(flatFwd).eulerAngles.y : 0f;
             rot = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, yaw, 0f);

@@ -561,7 +561,82 @@ def build_improvised():
     finish("improvised_mine", "ImprovisedMine", "improvised_mine", args.samples, elevation=24, azimuth=40)
 
 
-BUILDERS = {"molotov": build_molotov, "contact": build_contact, "mine": build_mine, "improvised": build_improvised}
+def receiver(x, y, z, wire_to):
+    """The remote receiver both charges carry: a small black box, a whip antenna, a red LED and two
+    wires into the charge. (x, y, z) = centre of the box's underside."""
+    box_m = flat("receiver", (0.07, 0.07, 0.07), 0.55, 0.25, 300)
+    led_m = flat("led", (0.9, 0.05, 0.04), 0.2, 0.0)
+    red = flat("rwire_red", (0.65, 0.05, 0.04), 0.4, 0.15)
+    blk = flat("rwire_black", (0.04, 0.04, 0.04), 0.4, 0.15)
+    rx = box("receiver", (0.05, 0.034, 0.02), (x, y, z + 0.01))
+    bevel(rx, 0.003, 2)
+    set_mat(rx, box_m)
+    ant = cylinder("antenna", 0.0014, 0.075, z + 0.02, 8, loc=(x + 0.018, y, 0))
+    set_mat(ant, box_m)
+    tip = cylinder("antenna_tip", 0.0026, 0.004, z + 0.093, 10, loc=(x + 0.018, y, 0))
+    set_mat(tip, box_m)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=12, ring_count=8, location=(x - 0.014, y - 0.012, z + 0.021))
+    set_mat(bpy.context.active_object, led_m)
+    for i, mat in enumerate((red, blk)):
+        dy = 0.006 if i == 0 else -0.006
+        tube_curve("rwire%d" % i, [(x - 0.025, y + dy, z + 0.008), (x - 0.04, y + dy, z + 0.012),
+                                   (wire_to[0], wire_to[1] + dy, wire_to[2])], 0.0016)
+        set_mat(bpy.context.active_object, mat)
+
+
+def build_demo():
+    reset()
+    # C4-style block: off-white putty in clear wrap, two grey tape bands, receiver on top.
+    p = M("putty", 0.45)
+    mottle = p.ramp(p.noise(70, 6.0), [(0.35, (0.86, 0.82, 0.70)), (0.7, (0.74, 0.70, 0.58))])
+    putty = p.color(mottle)
+    tape = flat("dtape", (0.40, 0.41, 0.42), 0.85, 0.3, 120)
+    blk = box("block", (0.17, 0.095, 0.038), (0, 0, 0.019))
+    bevel(blk, 0.004, 2)
+    set_mat(blk, putty)
+    for x in (-0.05, 0.05):
+        band = box("band%.2f" % x, (0.028, 0.099, 0.042), (x, 0, 0.019))
+        set_mat(band, tape)
+    receiver(0.0, 0.0, 0.040, (-0.07, 0.03, 0.034))
+    finish("demo_charge", "DemoCharge", "demo_charge", args.samples, elevation=32, azimuth=35)
+
+
+def build_claymore():
+    reset()
+    # Claymore-style curved slab on scissor legs. Unity +Z (placement forward, the blast
+    # direction) = Blender -Y, so the convex FRONT faces -Y.
+    body_m = M("claymore", 0.65)
+    z = body_m.xyz()
+    base = body_m.mix(body_m.ramp(body_m.noise(200), [(0.3, (1, 1, 1)), (0.7, (0.82, 0.82, 0.82))]),
+                      (0.24, 0.27, 0.15), (0.31, 0.34, 0.19))
+    # A pale stencil panel on the front face (the "front toward enemy" plate), without lettering.
+    front = body_m.math("MULTIPLY", body_m.math("LESS_THAN", z[1], -0.012),
+                        body_m.band(z[2], 0.075, 0.105))
+    body = body_m.color(body_m.mix(body_m.math("MULTIPLY", front, body_m.band(z[0], -0.07, 0.07)), base, (0.62, 0.60, 0.46)))
+    legs_m = flat("legs", (0.20, 0.21, 0.19), 0.5, 0.3, 300)
+
+    slab = box("slab", (0.22, 0.034, 0.085), (0, 0, 0.09))
+    bpy.context.view_layer.objects.active = slab
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.subdivide(number_cuts=12)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    # Bow it: push each vertex toward -Y by a parabola across X (convex front).
+    for v in slab.data.vertices:
+        v.co.y -= 0.022 * (1 - (v.co.x / 0.11) ** 2)
+    bevel(slab, 0.003, 1)
+    set_mat(slab, body)
+    for sx in (-0.07, 0.07):
+        for sy, lean in ((-0.03, 20), (0.03, -20)):
+            leg = cylinder("leg", 0.0022, 0.07, 0.0, 8, loc=(0, 0, 0))
+            leg.location = (sx, sy * 0.6, 0.033)
+            leg.rotation_euler = (math.radians(lean), 0, 0)
+            set_mat(leg, legs_m)
+    receiver(0.0, 0.004, 0.1325, (-0.05, 0.0, 0.12))
+    finish("ap_charge", "APCharge", "ap_charge", args.samples, elevation=18, azimuth=-30)
+
+
+BUILDERS = {"molotov": build_molotov, "contact": build_contact, "mine": build_mine, "improvised": build_improvised,
+            "demo": build_demo, "claymore": build_claymore}
 for key in args.only.split(","):
     print("[make_models] ===", key)
     BUILDERS[key.strip()]()

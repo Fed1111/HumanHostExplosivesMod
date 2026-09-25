@@ -13,7 +13,9 @@ namespace HumanHostExplosives.Registry
         // numeric values stable anyway.
         ContactGrenade,
         Mine,
-        ImprovisedMine
+        ImprovisedMine,
+        DemoCharge,
+        APCharge
     }
 
     /// <summary>
@@ -44,6 +46,9 @@ namespace HumanHostExplosives.Registry
         /// The quick-throw key skips these - a mine is never lobbed.
         /// </summary>
         internal bool Placeable;
+
+        /// <summary>Placed, but never self-triggers: set off from the HUD's detonate key (RemoteCharges).</summary>
+        internal bool RemoteDetonated;
 
         /// <summary>How many items one craft yields (PerIconData.craftNum - the UI shows "x N").</summary>
         internal int CraftNum = 1;

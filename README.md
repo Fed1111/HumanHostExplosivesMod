@@ -125,6 +125,15 @@ intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no
 | Molotov | thrown, fire | HandMade / Melee | 2 Alcohol, 10 Torn Cloth, 10 Tree Sap |
 | Nail bomb | thrown, shrapnel | HandMade / Melee | 25 Nails, 20 any ammo, 10 Duct Tape, 10 Scrap Iron |
 | Improvised mine | placed, shrapnel | HandMade / Trap | 15 Scrap Iron, 40 Nails, 25 any ammo, 10 Spring |
+| Demolition charge | placed, remote | GunWorkbench / Ammo | 20 Gun Powder, 15 Scrap Plastic, 3 Electrical Wire, 10 Duct Tape |
+| Anti-personnel charge | placed, remote, directional | GunWorkbench / Ammo | 2 Steel Ingot, 12 Gun Powder, 40 Nails, 3 Electrical Wire, 10 Scrap Plastic |
+
+Remote charges are `PlacedMine`s with `Def.RemoteDetonated`: same placement, kneel, pickup, save file
+and shootable collider, but no proximity trigger. `Gameplay/RemoteCharges.cs` draws the HUD widget
+(count, ARMING / READY / OUT OF RANGE) and handles `RemoteCharge.DetonateKey` (default X, with a
+one-time warning if it clashes with a game binding). The anti-personnel charge fires
+`Shrapnel.Fire` with a cone along its `transform.forward`, which faces the camera direction at
+placement.
 
 Counts are scaled to vanilla (guns take 8-20 Springs, 10 Duct Tape). Nitrate/Gun Powder need the
 Biochemical bench and biome-5/6 nitrate ore, so the hand-made items use **any ammunition** instead

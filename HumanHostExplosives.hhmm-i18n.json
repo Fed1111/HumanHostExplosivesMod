@@ -143,6 +143,36 @@
     "MinePlaceDistance": {
       "en": "Placing distance (m)"
     },
+    "EnableDemoCharge": {
+      "en": "Enable demolition charge"
+    },
+    "EnableAPCharge": {
+      "en": "Enable anti-personnel charge"
+    },
+    "DetonateKey": {
+      "en": "Detonate key"
+    },
+    "DetonateRange": {
+      "en": "Detonate range (m)"
+    },
+    "ShowHud": {
+      "en": "Show remote widget"
+    },
+    "DemoBuildableDamage": {
+      "en": "Demolition structure damage"
+    },
+    "DemoDamage": {
+      "en": "Demolition damage"
+    },
+    "APDamage": {
+      "en": "Anti-personnel damage"
+    },
+    "APRange": {
+      "en": "Anti-personnel range (m)"
+    },
+    "APConeAngle": {
+      "en": "Anti-personnel spread"
+    },
     "MinThrowSpeed": {
       "en": "Tap throw speed (m/s)"
     },
@@ -342,6 +372,36 @@
     },
     "MinePlaceDistance": {
       "en": "How far ahead of you a mine can be placed."
+    },
+    "EnableDemoCharge": {
+      "en": "Register the remote demolition charge. Takes effect after restarting the game."
+    },
+    "EnableAPCharge": {
+      "en": "Register the remote directional anti-personnel charge. Takes effect after restarting the game."
+    },
+    "DetonateKey": {
+      "en": "Sets off every armed charge in range."
+    },
+    "DetonateRange": {
+      "en": "How far from you a charge can be set off."
+    },
+    "ShowHud": {
+      "en": "Show the charge count and ARMING / READY while charges are placed."
+    },
+    "DemoBuildableDamage": {
+      "en": "Damage to walls and blocks - what the demolition charge is for."
+    },
+    "DemoDamage": {
+      "en": "Damage to creatures at the centre of a demolition charge."
+    },
+    "APDamage": {
+      "en": "Fragment damage in front of an anti-personnel charge."
+    },
+    "APRange": {
+      "en": "How far the fragments fly."
+    },
+    "APConeAngle": {
+      "en": "Half-angle of the fragment fan in front of the charge."
     },
     "MinThrowSpeed": {
       "en": "Throw speed for a tap with no hold."

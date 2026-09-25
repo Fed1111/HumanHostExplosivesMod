@@ -109,6 +109,23 @@ namespace HumanHostExplosives
             return p;
         }
 
+        /// <summary>Demolition charge: modest radius against creatures, heavy against structures.</summary>
+        internal static BlastParams Demo()
+        {
+            BlastParams p = Grenade();
+            p.LogTag = "DemoCharge";
+            p.Damage = Plugin.DemoDamage.Value;
+            p.DamageRadius = Plugin.DemoRadius.Value;
+            p.EffectRadius = Plugin.DemoEffectRadius.Value;
+            p.BuildableDamage = Plugin.DemoBuildableDamage.Value;
+            p.NoiseRadius = Plugin.DemoNoiseRadius.Value;
+            p.FlashScale = Plugin.GrenadeFlashScale.Value * 1.2f;
+            p.ParticulateScale = Plugin.GrenadeParticulateScale.Value * 1.4f;
+            p.HitFlyForce = 1.6f;
+            p.Volume = Plugin.ExplosionVolume.Value * 1.25f;
+            return p;
+        }
+
         internal static BlastParams Mine()
         {
             BlastParams p = Grenade();

@@ -21,7 +21,8 @@ namespace HumanHostExplosives
         /// whole point of the weapon), and partial cover now gives partial damage, but the damage
         /// a fully exposed target takes is deterministic instead of a lottery.
         /// </summary>
-        internal static int Fire(Vector3 origin, float radius, float maxDamage, C_Controller_Base thrower, string logTag)
+        internal static int Fire(Vector3 origin, float radius, float maxDamage, C_Controller_Base thrower, string logTag,
+                                 Vector3 coneDir = default(Vector3), float coneHalfAngle = 180f)
         {
             Creature_Mgr creatureMgr = Creature_Mgr.ins;
             if (creatureMgr == null || creatureMgr.capCol_To_Controller == null)
@@ -52,6 +53,17 @@ namespace HumanHostExplosives
                 if (distSqr > radiusSqr)
                 {
                     continue;
+                }
+
+                // Directional charges (the claymore): only what is inside the cone in front of it.
+                if (coneHalfAngle < 180f && coneDir != Vector3.zero)
+                {
+                    Vector3 toVictim = basePos + Vector3.up - origin;
+                    toVictim.y *= 0.3f;   // a wide horizontal fan - height barely matters
+                    if (Vector3.Angle(coneDir, toVictim) > coneHalfAngle)
+                    {
+                        continue;
+                    }
                 }
 
                 int clear = 0;

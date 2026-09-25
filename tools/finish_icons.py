@@ -14,6 +14,8 @@ ITEMS = {
     "contact_grenade": "ContactGrenade",
     "mine": "Mine",
     "improvised_mine": "ImprovisedMine",
+    "demo_charge": "DemoCharge",
+    "ap_charge": "APCharge",
 }
 SIZE = 256
 FILL = 0.88

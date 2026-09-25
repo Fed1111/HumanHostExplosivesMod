@@ -103,6 +103,11 @@ looking. It arms once you step away, blinks red, and blows up whatever comes clo
 blast near it, and it goes off. Pick it back up with your interact key. Saved with your game.
 [*][b]Improvised mine[/b] (hand-crafted, Trap tab): nails in a can on a spring trigger. It clicks
 before it blows, and sometimes it doesn't go off at all.
+[*][b]Remote charges[/b] (Gun Workbench), two kinds: the [b]demolition charge[/b] (2000 structure
+damage, built for breaching walls) and the [b]anti-personnel charge[/b] (faces the way you look, fires a
+wide fan of fragments). Place them like mines; a small on-screen widget shows how many are out and
+whether they are ARMING or READY, and one key (X by default) sets them all off. No detonator to carry.
+Shootable, can be picked back up, saved with your game.
 [*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
 [*]Explosions and breaking glass [b]draw zombies[/b] to the spot, not to you, so a throw works as a
 distraction. Lure them onto a mine.
@@ -115,6 +120,8 @@ distraction. Lure them onto a mine.
 [b]Molotov[/b]: 2 Alcohol, 10 Torn Cloth, 10 Tree Sap
 [b]Nail bomb[/b]: 25 Nails, 20 ammo (any kind), 10 Duct Tape, 10 Scrap Iron
 [b]Improvised mine[/b]: 15 Scrap Iron, 40 Nails, 25 ammo (any kind), 10 Spring
+[b]Demolition charge[/b]: 20 Gun Powder, 15 Scrap Plastic, 3 Electrical Wire, 10 Duct Tape
+[b]Anti-personnel charge[/b]: 2 Steel Ingot, 12 Gun Powder, 40 Nails, 3 Electrical Wire, 10 Scrap Plastic
 The hand-made items are early-game: their charge is powder pulled out of scavenged rounds - any
 caliber, any mix - so a bomb costs you bullets. The Gun Workbench items need refined metal and
 Gun Powder.

@@ -20,6 +20,8 @@ ITEMS = {
     "ContactGrenade": ("Grenade/grenade.obj", "ContactGrenade/contact_grenade.png", "ContactGrenade/contact_grenade_icon.png"),
     "Mine": ("Mine/mine.obj", "Mine/mine.png", "Mine/mine_icon.png"),
     "ImprovisedMine": ("ImprovisedMine/improvised_mine.obj", "ImprovisedMine/improvised_mine.png", "ImprovisedMine/improvised_mine_icon.png"),
+    "DemoCharge": ("DemoCharge/demo_charge.obj", "DemoCharge/demo_charge.png", "DemoCharge/demo_charge_icon.png"),
+    "APCharge": ("APCharge/ap_charge.obj", "APCharge/ap_charge.png", "APCharge/ap_charge_icon.png"),
 }
 
 errors = []

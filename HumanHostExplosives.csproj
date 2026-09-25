@@ -209,6 +209,12 @@
     <Copy SourceFiles="@(ContactAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ContactGrenade" ContinueOnError="true" />
     <Copy SourceFiles="@(MineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Mine" ContinueOnError="true" />
     <Copy SourceFiles="@(ImprovisedMineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ImprovisedMine" ContinueOnError="true" />
+    <ItemGroup>
+      <DemoAssets Include="$(MSBuildProjectDirectory)\Assets\DemoCharge\*.obj;$(MSBuildProjectDirectory)\Assets\DemoCharge\*.png" />
+      <APAssets Include="$(MSBuildProjectDirectory)\Assets\APCharge\*.obj;$(MSBuildProjectDirectory)\Assets\APCharge\*.png" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DemoAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\DemoCharge" ContinueOnError="true" />
+    <Copy SourceFiles="@(APAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\APCharge" ContinueOnError="true" />
     <!-- Icon of the "any ammunition" recipe material (Registry/AnyAmmoMaterial.cs). -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\AnyAmmo\any_ammo_icon.png" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\AnyAmmo" ContinueOnError="true" />
     <Copy SourceFiles="@(AnimAssets)"

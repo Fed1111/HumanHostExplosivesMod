@@ -31,6 +31,10 @@ namespace HumanHostExplosives
         private const string MineModelGuid = "34f5e6d7c8b9a0b1c2d3e4f5a6b7c8d9";
         private const string ImprovisedMineIconGuid = "e1d2c3b4a5f6071829304a5b6c7d8e9f";
         private const string ImprovisedMineModelGuid = "f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4";
+        private const string DemoChargeIconGuid = "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f701";
+        private const string DemoChargeModelGuid = "0a1b2c3d4e5f60718293a4b5c6d7e8f1";
+        private const string APChargeIconGuid = "5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a02";
+        private const string APChargeModelGuid = "7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4";
 
         // Real vanilla GUIDs for the Iron Pickaxe (icon + held model), decoded straight out of
         // catalog.json the same way the material GUIDs below are - see tools/catalog_guids.py in
@@ -146,6 +150,22 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> ImprovisedMineNoiseRadius;
 
         internal static ConfigEntry<bool> MinesTriggerOnPlayer;
+
+        internal static ConfigEntry<bool> EnableDemoCharge;
+        internal static ConfigEntry<bool> EnableAPCharge;
+        internal static ConfigEntry<KeyCode> DetonateKey;
+        internal static ConfigEntry<float> DetonateRange;
+        internal static ConfigEntry<float> RemoteArmSeconds;
+        internal static ConfigEntry<bool> ShowRemoteHud;
+        internal static ConfigEntry<float> DemoDamage;
+        internal static ConfigEntry<float> DemoRadius;
+        internal static ConfigEntry<float> DemoEffectRadius;
+        internal static ConfigEntry<float> DemoBuildableDamage;
+        internal static ConfigEntry<float> DemoNoiseRadius;
+        internal static ConfigEntry<float> APDamage;
+        internal static ConfigEntry<float> APRange;
+        internal static ConfigEntry<float> APConeAngle;
+        internal static ConfigEntry<float> APNoiseRadius;
         internal static ConfigEntry<float> MinePlaceDistance;
         internal static ConfigEntry<int> MaxActiveMines;
         internal static ConfigEntry<bool> InstantArmMines;
@@ -954,6 +974,39 @@ namespace HumanHostExplosives
             MinesTriggerOnPlayer = BindMigrated("Mine", "MinesTriggerOnPlayer", false,
                 new ConfigDescription("Mines go off for you (and friendly NPCs) too, like the game's own traps do. A mine never arms while you are " +
                 "still standing next to it, so placing one is safe. Off = only hostiles set mines off."), true);
+            EnableDemoCharge = Config.Bind("RemoteCharge", "EnableDemoCharge", true,
+                "Register the demolition charge: a remote-detonated block for breaching walls. Takes effect after restarting the game.");
+            EnableAPCharge = Config.Bind("RemoteCharge", "EnableAPCharge", true,
+                "Register the anti-personnel charge: a remote-detonated directional charge that fires a cone of fragments the " +
+                "way you were facing when you placed it. Takes effect after restarting the game.");
+            DetonateKey = Config.Bind("RemoteCharge", "DetonateKey", KeyCode.X,
+                "Sets off every armed remote charge in range. The mod warns in the log and on screen if this is also one of the " +
+                "game's own keys.");
+            DetonateRange = Config.Bind("RemoteCharge", "DetonateRange", 150f,
+                Range("How far (m) from you a charge can be set off.", 10f, 500f));
+            RemoteArmSeconds = Config.Bind("RemoteCharge", "ArmSeconds", 3f,
+                Range("Seconds after placing before a remote charge can be set off.", 0.5f, 15f));
+            ShowRemoteHud = Config.Bind("RemoteCharge", "ShowHud", true,
+                "Show the remote-charge widget (count, ARMING / READY) while you have charges placed.");
+            DemoDamage = Config.Bind("RemoteCharge", "DemoDamage", 300f,
+                Range("Demolition charge: damage at the centre, falling off to zero at DemoRadius.", 0f, 10000f));
+            DemoRadius = Config.Bind("RemoteCharge", "DemoRadius", 8f,
+                Range("Demolition charge: creature damage radius (m).", 1f, 30f));
+            DemoEffectRadius = Config.Bind("RemoteCharge", "DemoEffectRadius", 6f,
+                Range("Demolition charge: radius (m) of structure damage and the visual explosion.", 1f, 20f));
+            DemoBuildableDamage = Config.Bind("RemoteCharge", "DemoBuildableDamage", 2000f,
+                Range("Demolition charge: flat damage to buildables within DemoEffectRadius (grenade: 100). This is what it is for.", 0f, 3000f));
+            DemoNoiseRadius = Config.Bind("RemoteCharge", "DemoNoiseRadius", 80f,
+                Range("Demolition charge: how far (m) zombies hear it.", 0f, 300f));
+            APDamage = Config.Bind("RemoteCharge", "APDamage", 1800f,
+                Range("Anti-personnel charge: total fragment damage at the centre of its cone.", 0f, 10000f));
+            APRange = Config.Bind("RemoteCharge", "APRange", 25f,
+                Range("Anti-personnel charge: how far (m) the fragments fly.", 1f, 60f));
+            APConeAngle = Config.Bind("RemoteCharge", "APConeAngle", 60f,
+                Range("Anti-personnel charge: half-angle of the fragment cone. 60 = a 120-degree fan in front.", 10f, 180f));
+            APNoiseRadius = Config.Bind("RemoteCharge", "APNoiseRadius", 60f,
+                Range("Anti-personnel charge: how far (m) zombies hear it.", 0f, 300f));
+
             MinePlaceDistance = Config.Bind("Mine", "MinePlaceDistance", 3f,
                 Range("How far (m) ahead of you a mine can be placed - where you look, on fairly flat ground.", 1f, 5f));
             MaxActiveMines = Config.Bind("Performance", "MaxActiveMines", 20,
@@ -1147,6 +1200,61 @@ namespace HumanHostExplosives
             AddRecipeSlot(mine, "Mine", 3, MatSpring, 15, "Spring - pressure plate", new[] { 2 });
             AddRecipeSlot(mine, "Mine", 4, MatElectricalWire, 2, "Electrical Wire - fuze", new[] { 1 });
 
+            var demo = new ExplosiveDef
+            {
+                Kind = ExplosiveKind.DemoCharge,
+                Placeable = true,
+                RemoteDetonated = true,
+                Tag = "HHX_DemoCharge",
+                IconGuid = DemoChargeIconGuid,
+                ModelGuid = DemoChargeModelGuid,
+                ObjFileName = "DemoCharge/demo_charge.obj",
+                PngFileName = "DemoCharge/demo_charge.png",
+                IconPngFileName = "DemoCharge/demo_charge_icon.png",
+                UseObjNormals = true,
+                MaxStack = 3,
+                TooltipName = "Demolition Charge",
+                TooltipType = "Explosive",
+                TooltipInstruction = "A block of plastic explosive with a radio receiver. Equip and tap LMB to set it down, then press the detonate key (default X) to set off every armed charge in range. Built for bringing down walls. Shooting it sets it off. Pick it back up with your interact key.",
+                WorkbenchTypeName = Config.Bind("DemoCharge", "WorkbenchType", "GunWorkbench", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
+                TabIndex = Config.Bind("DemoCharge", "CraftTabIndex", 1, "Which tab (0-based). Default is GunWorkbench's 'Ammo' tab.").Value,
+                CraftSeconds = Config.Bind("DemoCharge", "CraftSeconds", 30f, "Crafting time in seconds.").Value,
+                CraftNum = CraftCountConfig("DemoCharge"),
+                HandOffset = HandOffsetConfig("DemoCharge", "Starts at the grenade's tuned value."),
+            };
+            AddRecipeSlot(demo, "DemoCharge", 1, MatGunPowder, 20, "Gun Powder - the charge");
+            AddRecipeSlot(demo, "DemoCharge", 2, MatScrapPlastic, 15, "Scrap Plastic - binder");
+            AddRecipeSlot(demo, "DemoCharge", 3, MatElectricalWire, 3, "Electrical Wire - receiver");
+            AddRecipeSlot(demo, "DemoCharge", 4, MatDuctTape, 10, "Duct Tape - wrapping");
+
+            var ap = new ExplosiveDef
+            {
+                Kind = ExplosiveKind.APCharge,
+                Placeable = true,
+                RemoteDetonated = true,
+                Tag = "HHX_APCharge",
+                IconGuid = APChargeIconGuid,
+                ModelGuid = APChargeModelGuid,
+                ObjFileName = "APCharge/ap_charge.obj",
+                PngFileName = "APCharge/ap_charge.png",
+                IconPngFileName = "APCharge/ap_charge_icon.png",
+                UseObjNormals = true,
+                MaxStack = 3,
+                TooltipName = "Anti-Personnel Charge",
+                TooltipType = "Explosive",
+                TooltipInstruction = "A curved directional charge on legs, with a radio receiver. Equip and tap LMB to set it down facing the way you look, then press the detonate key (default X): it fires a wide fan of fragments out of its front. Stay behind it. Shooting it sets it off.",
+                WorkbenchTypeName = Config.Bind("APCharge", "WorkbenchType", "GunWorkbench", "Craft_Mgr.WorkbenchType this recipe appears under.").Value,
+                TabIndex = Config.Bind("APCharge", "CraftTabIndex", 1, "Which tab (0-based). Default is GunWorkbench's 'Ammo' tab.").Value,
+                CraftSeconds = Config.Bind("APCharge", "CraftSeconds", 30f, "Crafting time in seconds.").Value,
+                CraftNum = CraftCountConfig("APCharge"),
+                HandOffset = HandOffsetConfig("APCharge", "Starts at the grenade's tuned value."),
+            };
+            AddRecipeSlot(ap, "APCharge", 1, MatForgedSteel, 2, "Steel Ingot - casing");
+            AddRecipeSlot(ap, "APCharge", 2, MatGunPowder, 12, "Gun Powder - the charge");
+            AddRecipeSlot(ap, "APCharge", 3, MatNails, 40, "Nails - the fragments");
+            AddRecipeSlot(ap, "APCharge", 4, MatElectricalWire, 3, "Electrical Wire - receiver");
+            AddRecipeSlot(ap, "APCharge", 5, MatScrapPlastic, 10, "Scrap Plastic - receiver housing");
+
             var defs = new List<ExplosiveDef>();
             AddIfReady(defs, grenade, true);
             AddIfReady(defs, contact, EnableContactGrenade.Value);
@@ -1154,6 +1262,8 @@ namespace HumanHostExplosives
             AddIfReady(defs, molotov, EnableMolotov.Value);
             AddIfReady(defs, improvised, EnableImprovisedMine.Value);
             AddIfReady(defs, mine, EnableMine.Value);
+            AddIfReady(defs, demo, EnableDemoCharge.Value);
+            AddIfReady(defs, ap, EnableAPCharge.Value);
             return defs;
         }
 
@@ -1212,6 +1322,7 @@ namespace HumanHostExplosives
         internal const string MatElectricalWire = "2c3ee09ccf9a2684690411a04731acbe"; // Recipes/Tool/Electrical_Wire
         internal const string MatTornCloth = "88e47f080fb36644c81bb2ff11a8bb9c";    // Recipes/Cloth/Torn_Cloth
         internal const string MatAlcohol = "6665f9904b4a44246a556e7dfca770b0";      // Recipes/Medical/Alcohol
+        internal const string MatScrapPlastic = "d4ba8c34406374e478452b2a2e2bdc49"; // Recipes/Tool/Scrap_Plastic
         internal const string MatAnyAmmo = AnyAmmoMaterial.Guid;                    // mod-defined: any loose rounds
 
         /// <summary>
@@ -1579,6 +1690,7 @@ namespace HumanHostExplosives
                 DrawChargeBar();
             }
             DrawMinePickupHint();
+            RemoteCharges.DrawHud();
 
             if (string.IsNullOrEmpty(_toastText) || Time.unscaledTime > _toastUntil)
             {
@@ -1640,6 +1752,7 @@ namespace HumanHostExplosives
             MineManager.Tick();
             MinePersistence.TickLoad();
             MinePersistence.TickPickup();
+            RemoteCharges.TickInput();
 
             // Gated behind EnableDiagnostics on top of defaulting to KeyCode.None - this spawns
             // explosives for free, bypassing inventory entirely, so it must not be reachable by a

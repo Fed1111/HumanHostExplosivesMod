@@ -59,7 +59,8 @@ namespace HumanHostExplosives
             mine.Def = def;
             mine.Owner = owner;
             mine.Phase = State.Arming;
-            float arm = mine.Improvised ? Plugin.ImprovisedMineArmSeconds.Value : Plugin.MineArmSeconds.Value;
+            float arm = def.RemoteDetonated ? Plugin.RemoteArmSeconds.Value
+                : mine.Improvised ? Plugin.ImprovisedMineArmSeconds.Value : Plugin.MineArmSeconds.Value;
             if (Plugin.EnableDiagnostics.Value && Plugin.InstantArmMines.Value)
             {
                 arm = 0.5f;
@@ -67,7 +68,9 @@ namespace HumanHostExplosives
             mine.ArmAt = Time.time + arm;
             if (!mine.Improvised)
             {
-                mine._led = BuildLed(go.transform);
+                // On the receiver for the remote charges, on the pressure plate for the mine.
+                float ledY = def.Kind == ExplosiveKind.APCharge ? 0.16f : 0.065f;
+                mine._led = BuildLed(go.transform, ledY);
             }
             MineManager.Add(mine);
             if (!silent)
@@ -89,11 +92,11 @@ namespace HumanHostExplosives
         }
 
         /// <summary>A red blip every second once armed - tells the player (and only the player) it's live.</summary>
-        private static ParticleSystem BuildLed(Transform parent)
+        private static ParticleSystem BuildLed(Transform parent, float height)
         {
             var go = new GameObject("HHE_MineLed");
             go.transform.SetParent(parent, worldPositionStays: false);
-            go.transform.localPosition = new Vector3(0f, 0.065f, 0f);
+            go.transform.localPosition = new Vector3(0f, height, 0f);
             var ps = go.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ParticleSystem.MainModule main = ps.main;
@@ -135,6 +138,18 @@ namespace HumanHostExplosives
                 return;
             }
 
+            if (Def.Kind == ExplosiveKind.DemoCharge)
+            {
+                Blast.Detonate(Blast.Demo(), pos + Vector3.up * 0.1f, Owner);
+                Destroy(gameObject);
+                return;
+            }
+            if (Def.Kind == ExplosiveKind.APCharge)
+            {
+                ExplodeDirectional(pos);
+                Destroy(gameObject);
+                return;
+            }
             if (!Improvised)
             {
                 Blast.Detonate(Blast.Mine(), pos + Vector3.up * 0.15f, Owner);
@@ -191,6 +206,40 @@ namespace HumanHostExplosives
             Destroy(gameObject);
         }
 
+        /// <summary>
+        /// The claymore: a cone of fragments out of its front (transform.forward, which faces the way
+        /// the player looked when placing it), a small blast for the flash, bang and noise, and almost
+        /// nothing behind it.
+        /// </summary>
+        private void ExplodeDirectional(Vector3 pos)
+        {
+            Vector3 origin = pos + Vector3.up * 0.3f;
+            Vector3 dir = transform.forward;
+            dir.y = 0f;
+            int hits = 0;
+            try
+            {
+                hits = Shrapnel.Fire(origin, Plugin.APRange.Value, Plugin.APDamage.Value, Owner, "APCharge",
+                                     dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward, Plugin.APConeAngle.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[APCharge] shrapnel threw: " + ex);
+            }
+            // The charge itself: short-range blast so anyone right on top of it is still hurt.
+            BlastParams b = Blast.Grenade();
+            b.LogTag = "APCharge";
+            b.Damage = Plugin.APDamage.Value * 0.5f;
+            b.DamageRadius = 3f;
+            b.EffectRadius = 2.5f;
+            b.BuildableDamage = 20f;
+            b.NoiseRadius = Plugin.APNoiseRadius.Value;
+            b.FlashScale = Plugin.NailbombFlashScale.Value;
+            b.ParticulateScale = Plugin.NailbombParticulateScale.Value;
+            Blast.Detonate(b, origin, Owner);
+            Plugin.Log.LogInfo($"[APCharge] fired toward {dir}, fragmentHits={hits}.");
+        }
+
         private void OnDestroy()
         {
             MineManager.Remove(this);
@@ -211,6 +260,19 @@ namespace HumanHostExplosives
         internal static void Remove(PlacedMine m) => Mines.Remove(m);
         internal static void Prune() => Mines.RemoveAll(m => m == null);
         internal static IEnumerable<PlacedMine> All() => Mines;
+
+        /// <summary>Remote detonation: goes off after the given delay, never a dud.</summary>
+        internal static void RemoteFire(PlacedMine m, float delay)
+        {
+            if (m == null || m.Phase == PlacedMine.State.Done || (m.Phase == PlacedMine.State.Triggered && !m.Pressed))
+            {
+                return;
+            }
+            m.Phase = PlacedMine.State.Triggered;
+            m.Pressed = false;
+            m.Dud = false;
+            m.DetonateAt = Time.time + delay;
+        }
 
         /// <summary>Shot or struck: goes off a beat later, never a dud, whatever state it was in.</summary>
         internal static void SetOffByHit(PlacedMine m)
@@ -302,6 +364,13 @@ namespace HumanHostExplosives
 
             if (m.Phase == PlacedMine.State.Arming)
             {
+                if (m.Def.RemoteDetonated && now >= m.ArmAt)
+                {
+                    // Remote charges arm on their timer alone - you are meant to be near them.
+                    m.Phase = PlacedMine.State.Armed;
+                    SmallSounds.PlayClick(pos, 0.4f);
+                    return;
+                }
                 bool ownerClear = m.Owner == null || !m.Owner.gameObject.activeInHierarchy ||
                                   Vector3.Distance(m.Owner.transform.position, pos) > m.TriggerRadius * 1.5f;
                 if (now >= m.ArmAt && ownerClear)
@@ -313,6 +382,10 @@ namespace HumanHostExplosives
                 return;
             }
 
+            if (m.Def.RemoteDetonated)
+            {
+                return; // never self-triggered
+            }
             C_Controller_Base presser = FindPresser(m);
             if (presser != null)
             {
