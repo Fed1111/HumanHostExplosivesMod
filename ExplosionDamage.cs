@@ -222,6 +222,8 @@ namespace HumanHostExplosives
             internal float Damage;
             internal float Order;    // blast batch, then distance from that blast
             internal float Expire;
+            internal bool Sweep;     // no collider: find the shard pieces left at Point and hit those
+            internal bool Demolish;  // demolition: after cutting a cell, sweep its shards too
         }
 
         private static readonly List<ZoneJob> ZoneQueue = new List<ZoneJob>();
@@ -253,40 +255,105 @@ namespace HumanHostExplosives
             ExplosionDrops.Scope++;
             try
             {
-            while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null)
-            {
-                ZoneJob job = ZoneQueue[0];
-                ZoneQueue.RemoveAt(0);
-                if (job.Col == null || job.Bi == null || !job.Col.gameObject.activeInHierarchy || Time.time > job.Expire)
+                while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null)
                 {
-                    continue;
-                }
-                try
-                {
-                    if (job.Col.CompareTag("ZoneSlice"))
+                    ZoneJob job = ZoneQueue[0];
+                    ZoneQueue.RemoveAt(0);
+                    if (job.Bi == null || Time.time > job.Expire)
                     {
-                        if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
-                        {
-                            ZoneQueue.Insert(0, job);   // shard path waits for furniture spawning too
-                            break;
-                        }
-                        smash.ZoneSmash_Shard_MinusHP(job.Bi, job.Point, job.Col, job.Damage, isFromPlayer: true);
+                        continue;
                     }
-                    else
+                    try
                     {
-                        smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, job.Col, job.Damage, isFromPlayer: true);
+                        RunZoneJob(smash, job);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Plugin.Log.LogWarning($"[Explosion] zone hit on '{job.Bi.name}' threw: {ex.Message}");
                     }
                 }
-                catch (System.Exception ex)
-                {
-                    Plugin.Log.LogWarning($"[Explosion] zone hit on '{job.Bi.name}' threw: {ex.Message}");
-                }
-            }
             }
             finally
             {
                 ExplosionDrops.Scope--;
             }
+        }
+
+        private static readonly Collider[] SweepBuffer = new Collider[64];
+
+        /// <summary>
+        /// One queued zone-wall hit, checked against the wall as it is NOW - a queued collider can have
+        /// been sliced by an earlier hit in the meantime.
+        ///  - A shard piece (tag ZoneSlice, parent named with its cell index - the game int.Parse()s it):
+        ///    the shard path.
+        ///  - A ZoneSlice collider whose parent is NOT a number: its cell was cut up since it was queued;
+        ///    that collider is no longer something the game can hit. Sweep for the real shards instead.
+        ///  - A whole cell: the cell path, and for demolition a follow-up sweep of whatever shards the cut
+        ///    leaves standing (they would otherwise hold the structure up - "the pillar took several blasts").
+        /// </summary>
+        private static void RunZoneJob(Smash_Fallen_Manager smash, ZoneJob job)
+        {
+            if (job.Sweep)
+            {
+                int n = Physics.OverlapSphereNonAlloc(job.Point, 0.9f, SweepBuffer, ~0, QueryTriggerInteraction.Ignore);
+                int added = 0;
+                for (int i = 0; i < n && added < 24; i++)
+                {
+                    Collider c = SweepBuffer[i];
+                    if (c == null || !c.CompareTag("ZoneSlice") || !IsShardPiece(c) || c.GetComponentInParent<Build_Info>() != job.Bi)
+                    {
+                        continue;
+                    }
+                    ZoneQueue.Insert(0, new ZoneJob
+                    {
+                        Bi = job.Bi, Col = c, Point = c.ClosestPoint(job.Point), Damage = job.Damage,
+                        Order = job.Order, Expire = job.Expire,
+                    });
+                    added++;
+                }
+                return;
+            }
+
+            Collider col = job.Col;
+            if (col == null || !col.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+            if (col.CompareTag("ZoneSlice"))
+            {
+                if (!IsShardPiece(col))
+                {
+                    ZoneQueue.Insert(0, new ZoneJob { Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order, Expire = job.Expire, Sweep = true });
+                    return;
+                }
+                if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+                {
+                    ZoneQueue.Insert(0, job);   // the shard path waits for furniture spawning too
+                    return;
+                }
+                smash.ZoneSmash_Shard_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: true);
+                return;
+            }
+
+            smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: true);
+            if (job.Demolish)
+            {
+                // After this cell's slice runs, clear what it leaves standing.
+                ZoneQueue.Add(new ZoneJob
+                {
+                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order + 0.5f,
+                    Expire = job.Expire, Sweep = true,
+                });
+                _zoneSorted = false;
+            }
+        }
+
+        /// <summary>A real shard piece: ZoneSmash_Shard_MinusHP int.Parse()s its parent's name as the cell index.</summary>
+        private static bool IsShardPiece(Collider c)
+        {
+            Transform parent = c.transform.parent;
+            return parent != null && parent.parent != null && parent.parent.parent != null &&
+                   int.TryParse(parent.name, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out _);
         }
 
         private static readonly Dictionary<string, int> _demoReasons = new Dictionary<string, int>();
@@ -490,6 +557,7 @@ namespace HumanHostExplosives
                         Damage = wholeBlocks ? 1000000f : damage,
                         Order = _zoneBatch * 10000f + Vector3.Distance(center, hitPoint),
                         Expire = Time.time + 20f,
+                        Demolish = wholeBlocks,
                     });
                     hits++;
                     if (wholeBlocks)
