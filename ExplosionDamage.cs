@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HarmonyLib;
 using MLSpace;
 using UnityEngine;
 
@@ -213,17 +214,25 @@ namespace HumanHostExplosives
         /// mid-save.
         /// </param>
         /// <summary>Per-blast demolition tally, logged once per demolition blast (not diagnostics-gated).</summary>
+        private static readonly Dictionary<string, int> _demoReasons = new Dictionary<string, int>();
+        private static readonly List<(Battle_Info Piece, float GiveUpAt)> Deferred = new List<(Battle_Info, float)>();
+        private static float _nextDeferredTry;
+        private static int _deferredDone;
+
         private static int _demoHouseBlocks, _demoBlocks, _demoShardsBroken, _demoShardsRefused, _demoWalls, _demoZoneCells;
 
         internal static int ApplyToBuildables(Vector3 center, float radius, float damage, bool wholeBlocks = false)
         {
+            _demoReasons.Clear();
             _demoHouseBlocks = _demoBlocks = _demoShardsBroken = _demoShardsRefused = _demoWalls = _demoZoneCells = 0;
             int result = ApplyToBuildablesCore(center, radius, damage, wholeBlocks);
             if (wholeBlocks)
             {
                 Plugin.Log.LogInfo($"[Demolition] {_demoBlocks} block(s) ({_demoHouseBlocks} of them world-building): {_demoShardsBroken} shard(s) broken, " +
                                    $"{_demoShardsRefused} refused by the game (loading/saving/furniture guard); " +
-                                   $"{_demoWalls} big wall(s) and {_demoZoneCells} zone cell(s) destroyed.");
+                                   $"{_demoWalls} big wall(s) and {_demoZoneCells} zone cell(s) destroyed." +
+                                   (_demoReasons.Count > 0 ? " Refused because: " + string.Join(", ", ReasonList()) + "." : "") +
+                                   (Deferred.Count > 0 ? $" {Deferred.Count} queued to retry." : ""));
             }
             return result;
         }
@@ -535,6 +544,101 @@ namespace HumanHostExplosives
             return hits;
         }
 
+        private static IEnumerable<string> ReasonList()
+        {
+            foreach (KeyValuePair<string, int> kv in _demoReasons)
+            {
+                yield return $"{kv.Key} x{kv.Value}";
+            }
+        }
+
+        private static bool IsTransient(string reason) =>
+            reason.StartsWith("loading") || reason.StartsWith("saving") || reason.StartsWith("detecting");
+
+        /// <summary>
+        /// Which of Process_Smashed_Shard's guards (Build_System:22198-22276) turned a smash away - the
+        /// same checks in the same order. Private fields are read through Traverse; a missing field reads as
+        /// "not blocking" rather than throwing.
+        /// </summary>
+        private static string RefusalReason(Battle_Info piece, TopOnHit t)
+        {
+            try
+            {
+                Build_Info bi = piece.FatherBI;
+                if (bi == null) return "no owning block";
+                Traverse tr = Traverse.Create(t);
+                if (piece.gameObject.layer == tr.Field("layer_Bullet").GetValue<int>()) return "bullet layer";
+                if (piece.Belong_Group == null) return "no shard group";
+                if (bi.top_Info != null && bi.top_Info.Is_Detecting_Battles) return "detecting (block being placed)";
+                if (bi._IsFurniBI && !bi.IsCoding) return "loading (furniture data)";
+                if (bi.top_Info != null && bi.top_Info.IsInLoading) return "loading (this structure)";
+                Traverse init = tr.Field("_buildInit");
+                if (init.Field("systemHouseManager").Field("InLoadingSystemHouse").GetValue<int>() > 0) return "loading (a world building nearby)";
+                if (init.Field("chunkMgr").Field("_inSavingData").GetValue<bool>()) return "saving";
+                if (tr.Field("_terraTreeMgr").Field("In_LoadTreeSpawners").GetValue<int>() > 0) return "loading (trees)";
+                return "unknown";
+            }
+            catch (System.Exception ex)
+            {
+                return "unknown (" + ex.GetType().Name + ")";
+            }
+        }
+
+        /// <summary>
+        /// Called from Plugin.Update: retries demolition smashes the game refused while something was
+        /// loading or saving, four times a second, for up to 15 s each.
+        /// </summary>
+        internal static void TickDeferred()
+        {
+            if (Deferred.Count == 0 || Time.time < _nextDeferredTry)
+            {
+                return;
+            }
+            _nextDeferredTry = Time.time + 0.25f;
+            TopOnHit t = UnityEngine.Object.FindObjectOfType<TopOnHit>();
+            if (t == null)
+            {
+                return;
+            }
+            for (int i = Deferred.Count - 1; i >= 0; i--)
+            {
+                Battle_Info piece = Deferred[i].Piece;
+                if (piece == null || piece.Smashed || piece.Is_Fallen)
+                {
+                    Deferred.RemoveAt(i);
+                    continue;
+                }
+                string why = RefusalReason(piece, t);
+                if (why == "unknown")
+                {
+                    try
+                    {
+                        t.Process_Smashed_Shard(piece, fromPlayer: false, entityBulletHit: true);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Plugin.Log.LogWarning("[Demolition] retry threw: " + ex.Message);
+                    }
+                    if (piece == null || piece.Smashed || piece.Is_Fallen)
+                    {
+                        _deferredDone++;
+                        Deferred.RemoveAt(i);
+                        continue;
+                    }
+                }
+                if (Time.time > Deferred[i].GiveUpAt || !IsTransient(why) && why != "unknown")
+                {
+                    Plugin.Log.LogInfo($"[Demolition] gave up on a shard of '{piece.FatherBI?.name}': {why}.");
+                    Deferred.RemoveAt(i);
+                }
+            }
+            if (Deferred.Count == 0 && _deferredDone > 0)
+            {
+                Plugin.Log.LogInfo($"[Demolition] {_deferredDone} queued shard(s) broken on retry.");
+                _deferredDone = 0;
+            }
+        }
+
         /// <summary>Breaks every shard of one block (demolition) - see ApplyToBuildables' wholeBlocks.</summary>
         private static int SmashWholeBlock(Build_Info buildInfo, TopOnHit topOnHit, HashSet<Battle_Info> alreadyHit)
         {
@@ -572,6 +676,14 @@ namespace HumanHostExplosives
                     else
                     {
                         _demoShardsRefused++;
+                        string why = RefusalReason(piece, topOnHit);
+                        _demoReasons[why] = (_demoReasons.TryGetValue(why, out int c) ? c : 0) + 1;
+                        // Loading/saving refusals are temporary: queue it and try again shortly
+                        // (TickDeferred), rather than forcing past a guard that protects world loading.
+                        if (IsTransient(why))
+                        {
+                            Deferred.Add((piece, Time.time + 15f));
+                        }
                     }
                 }
                 catch (System.Exception ex)

@@ -1779,6 +1779,7 @@ namespace HumanHostExplosives
             BurnManager.Tick();
             MineManager.Tick();
             MinePersistence.TickLoad();
+            HumanHostExplosives.ExplosionDamage.TickDeferred();
             MinePersistence.TickPickup();
             RemoteCharges.TickInput();
 
