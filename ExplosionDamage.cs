@@ -212,7 +212,23 @@ namespace HumanHostExplosives
         /// Process_Smashed_Shard with its guards ON (forceRun false), so nothing is broken mid-load or
         /// mid-save.
         /// </param>
+        /// <summary>Per-blast demolition tally, logged once per demolition blast (not diagnostics-gated).</summary>
+        private static int _demoHouseBlocks, _demoBlocks, _demoShardsBroken, _demoShardsRefused, _demoWalls, _demoZoneCells;
+
         internal static int ApplyToBuildables(Vector3 center, float radius, float damage, bool wholeBlocks = false)
+        {
+            _demoHouseBlocks = _demoBlocks = _demoShardsBroken = _demoShardsRefused = _demoWalls = _demoZoneCells = 0;
+            int result = ApplyToBuildablesCore(center, radius, damage, wholeBlocks);
+            if (wholeBlocks)
+            {
+                Plugin.Log.LogInfo($"[Demolition] {_demoBlocks} block(s) ({_demoHouseBlocks} of them world-building): {_demoShardsBroken} shard(s) broken, " +
+                                   $"{_demoShardsRefused} refused by the game (loading/saving/furniture guard); " +
+                                   $"{_demoWalls} big wall(s) and {_demoZoneCells} zone cell(s) destroyed.");
+            }
+            return result;
+        }
+
+        private static int ApplyToBuildablesCore(Vector3 center, float radius, float damage, bool wholeBlocks)
         {
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
             Global_Infos globalInfos = Global_Infos.ins;
@@ -368,13 +384,19 @@ namespace HumanHostExplosives
                     bool isAlreadySlicedShard = col.CompareTag("ZoneSlice");
                     try
                     {
+                        // Demolition takes a zone cell straight out rather than chipping at it.
+                        float zoneDamage = wholeBlocks ? 1000000f : damage;
                         if (isAlreadySlicedShard)
                         {
-                            smashMgr.ZoneSmash_Shard_MinusHP(buildInfo, center, col, damage, isFromPlayer: true);
+                            smashMgr.ZoneSmash_Shard_MinusHP(buildInfo, center, col, zoneDamage, isFromPlayer: true);
                         }
                         else
                         {
-                            smashMgr.ZoneSmash_BI_MinusHP(buildInfo, center, col, damage, isFromPlayer: true);
+                            smashMgr.ZoneSmash_BI_MinusHP(buildInfo, center, col, zoneDamage, isFromPlayer: true);
+                        }
+                        if (wholeBlocks)
+                        {
+                            _demoZoneCells++;
                         }
                         hits++;
                         if (Plugin.EnableDiagnostics.Value)
@@ -405,8 +427,16 @@ namespace HumanHostExplosives
                 {
                     try
                     {
-                        smashMgr.SysHouse_BigWall_MinusHP(buildInfo, damage, center);
+                        // Demolition: whatever the wall has left - one charge brings a big wall down.
+                        float wallDamage = wholeBlocks ? Mathf.Max(damage, buildInfo.Shards_HP_Left + 1f) : damage;
+                        float before = buildInfo.Shards_HP_Left;
+                        smashMgr.SysHouse_BigWall_MinusHP(buildInfo, wallDamage, center);
                         hits++;
+                        if (wholeBlocks)
+                        {
+                            _demoWalls++;
+                            Plugin.Log.LogInfo($"[Demolition] big wall '{buildInfo.name}': HP {before:F0} -> {buildInfo.Shards_HP_Left:F0}.");
+                        }
                         if (Plugin.EnableDiagnostics.Value)
                         {
                             Plugin.Log.LogInfo($"[Explosion] SysHouseBigWall '{buildInfo.name}': -{damage:F0} HP (Shards_HP_Left now {buildInfo.Shards_HP_Left:F0}).");
@@ -533,16 +563,30 @@ namespace HumanHostExplosives
                 try
                 {
                     topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true);
-                    n++;
+                    // The game can turn a smash away silently (loading, saving, furniture data not ready).
+                    if (piece == null || piece.Smashed || piece.Is_Fallen)
+                    {
+                        n++;
+                        _demoShardsBroken++;
+                    }
+                    else
+                    {
+                        _demoShardsRefused++;
+                    }
                 }
                 catch (System.Exception ex)
                 {
                     Plugin.Log.LogWarning($"[Explosion] demolishing '{piece.name}' threw: {ex.Message}");
                 }
             }
+            _demoBlocks++;
+            if (buildInfo._Type == Build_Info.Type.SystemHouseBI)
+            {
+                _demoHouseBlocks++;
+            }
             if (Plugin.EnableDiagnostics.Value)
             {
-                Plugin.Log.LogInfo($"[Explosion] demolished '{buildInfo.name}': {n} of {pieces.Count} shard(s) broken.");
+                Plugin.Log.LogInfo($"[Explosion] demolished '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}): {n} of {pieces.Count} shard(s) broken.");
             }
             return n > 0 ? 1 : 0;
         }
