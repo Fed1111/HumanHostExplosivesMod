@@ -123,6 +123,13 @@ namespace HumanHostExplosives.Registry
                 {
                     continue;
                 }
+                // Only items that actually finished registering. A def whose build was skipped has a
+                // GUID nothing can resolve, and a container rolling it makes the engine log
+                // 'Invalid path in AssetBundleProvider' - the game's install-corruption signal.
+                if (def.RuntimeIconInfo == null)
+                {
+                    continue;
+                }
 
                 for (int i = 0; i < array.Length; i++)
                 {

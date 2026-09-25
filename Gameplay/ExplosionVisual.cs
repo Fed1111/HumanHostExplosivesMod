@@ -62,11 +62,11 @@ namespace HumanHostExplosives
                     }
                     if (_realFireMaterial == null && renderer.gameObject.name == "fx_fire")
                     {
-                        _realFireMaterial = new Material(renderer.sharedMaterial);
+                        _realFireMaterial = new Material(renderer.sharedMaterial) { name = "HHE_Fire_Mat" };
                     }
                     else if (_realSmokeMaterial == null && renderer.gameObject.name == "fx_smoke")
                     {
-                        _realSmokeMaterial = new Material(renderer.sharedMaterial);
+                        _realSmokeMaterial = new Material(renderer.sharedMaterial) { name = "HHE_Smoke_Mat" };
                     }
                 }
 
@@ -329,7 +329,7 @@ namespace HumanHostExplosives
                 return;
             }
 
-            var material = new Material(shader);
+            var material = new Material(shader) { name = "HHE_Particle_Mat" };
             // Cover every common tint-property name across shader families so whichever one this
             // resolved to actually gets a visible, opaque-enough tint instead of defaulting to
             // black/transparent.

@@ -177,7 +177,7 @@ namespace HumanHostExplosives.Registry
             object entry = Activator.CreateInstance(PerIconDataType);
             IconRefField.SetValue(entry, new AssetReference(def.IconGuid));
             IconInfoField.SetValue(entry, def.RuntimeIconInfo);
-            CraftNumField.SetValue(entry, 1);
+            CraftNumField.SetValue(entry, System.Math.Max(1, def.CraftNum));
             CraftSecondsField.SetValue(entry, def.CraftSeconds);
             MatsDataField.SetValue(entry, mats);
             return entry;

@@ -1,0 +1,10 @@
+0.3.0 - Molotovs, contact grenades, land mines and improvised mines, and reworked recipes.
+
+NEW: Molotov cocktail (hand-crafted). Shatters on impact into a pool of fire that burns for about 10 seconds. Zombies that walk through catch fire and keep burning after they leave it. So can you (with self damage on). The flames and light are borrowed from the game's own torch.
+NEW: Contact grenade (Gun Workbench). Explodes on the first thing it hits. A slightly smaller charge than the standard grenade.
+NEW: Land mine (Gun Workbench). Equip it and tap LMB to put it on the ground where you are looking. It arms once you step away, blinks red, and blows up whatever comes close. Nearby blasts set mines off, so they chain.
+NEW: Improvised mine (hand-crafted, Trap tab). A nail-packed can on a spring trigger. Nail shrapnel like the nail bomb, a crude trigger that clicks before it blows, and it sometimes fails to go off.
+Mines hurt you too by default, like the game's own traps. They never arm while you are standing next to one. Turn this off with "Mines can hit you". Placed mines are not saved: they are gone after you quit or load.
+RECIPES reworked. Grenade: 2 Iron Ingot, 5 Gun Powder, 1 Spring. Nail bomb: 5 Nails, 5 Nitrate Powder, 2 Duct Tape, 1 Scrap Iron, now on the hand-craft Melee tab next to the Molotov. Existing configs are updated automatically if you never changed those values, and your old config is backed up first.
+Fix: an item whose art failed to load could still be added to loot tables.
+All new settings are in ModMenu and the Mod Manager.

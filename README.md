@@ -115,14 +115,42 @@ from a 289k-tri AI-generated source using per-face UV transfer to keep the textu
 intact) and `grenade.png` (1024x1024 diffuse texture). Loaded at runtime with no Unity Editor
 / AssetBundle step required — see `ObjLoader.cs` and `TextureLoader.cs`.
 
-## Molotov model — not built yet
+## 0.3.0 items
 
-`Assets/Molotov/molotov.obj` + `molotov.png` don't exist. Until they're added, `ExplosiveDef`'s
-own mesh/texture check fails for the Molotov def and the registry silently skips registering it
-(logged as a warning) — everything else (recipe config, use-hook, projectile/fire-pool code) is
-already wired up and will start working the moment the art is dropped in.
+| Item | Kind | Bench / tab | Recipe |
+|---|---|---|---|
+| Grenade | thrown, 3 s fuse | GunWorkbench / Ammo | 2 Iron Ingot, 5 Gun Powder, 1 Spring |
+| Contact grenade | thrown, impact fuse | GunWorkbench / Ammo | 2 Iron Ingot, 4 Gun Powder, 1 Spring, 1 Scrap Brass |
+| Land mine | placed | GunWorkbench / Ammo | 2 Steel Ingot, 8 Gun Powder, 2 Spring, 1 Electrical Wire |
+| Molotov | thrown, fire | HandMade / Melee | 1 Glass, 2 Alcohol, 1 Torn Cloth, 1 Tree Sap |
+| Nail bomb | thrown, shrapnel | HandMade / Melee | 5 Nails, 5 Nitrate Powder, 2 Duct Tape, 1 Scrap Iron |
+| Improvised mine | placed, shrapnel | HandMade / Trap | 3 Scrap Iron, 6 Nails, 6 Nitrate Powder, 1 Spring |
+
+- **Fire system** (`Gameplay/FirePool.cs`, `BurnManager.cs`, `FireDamage.cs`, `FireFx.cs`). A pool
+  ticks damage every `FireTickSeconds` and sets alight anyone standing in it. A burning character
+  keeps burning for `BurnSeconds`, and its flames follow the chest collider. The flames and sparks
+  are copies of `Torch_Build`'s `fx_fire`/`fx_sparks`, with a fallback to `WB_Campfire`, then to
+  Sprites/Default. The light is a runtime HDRP point light. The sound is the vanilla `Campfire`
+  clip, or a synthesized crackle if that clip isn't loaded. Fire damage is dealt the way the
+  game's traps deal it (`switchToAnimancer:false`), so a zombie staggers but doesn't ragdoll every
+  tick, and no blood is drawn.
+- **Mines** (`Gameplay/MinePlacer.cs`, `PlacedMine.cs`). A tap with a mine in hand places it where
+  the camera looks, on fairly flat ground within 3 m. A spot that is refused costs nothing. A mine
+  arms after its timer, but only once its owner has stepped away. `MineManager` polls placed mines
+  about 5 times a second from `Plugin.Update`. Any blast sets off mines within 4 m of it. Mines
+  aren't saved.
+- **Shared code:** `Gameplay/Blast.cs` is the HE detonation used by the grenade, contact grenade and
+  mine. `Gameplay/Shrapnel.cs` is the line-of-sight fragment damage used by the nail bomb and the
+  improvised mine; it was moved out of NailbombProjectile unchanged.
+- **Art** is procedural (Blender). Rebuild it with:
+  `blender -b --factory-startup -P tools/make_models.py -- --repo <this repo>`, then
+  `python tools/finish_icons.py` and `python tools/check_assets.py`.
+- **Gating:** an item registers only if it is enabled AND all of its art files exist
+  (`ExplosiveDef.ArtFilesPresent`). Loot injection skips anything that didn't finish registering.
 
 ## Status
+
+**0.3.0 has not been run in-game yet.** Everything below this line predates it.
 
 Both items go through the same registration/throw/craft pipeline. Grenade is fully wired,
 pending the one-time template/recipe GUID setup above and an actual in-game test pass (not done

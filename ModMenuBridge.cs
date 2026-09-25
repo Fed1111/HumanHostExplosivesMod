@@ -10,7 +10,7 @@ namespace HumanHostExplosives
     /// See MOD_CONVENTIONS.md #38.
     ///
     /// Curated: registry GUIDs, per-item recipe/hand-offset entries (read once at startup), debug
-    /// keys, throw-origin nudges and the Molotov (no art) stay config-file only.
+    /// keys, throw-origin nudges, performance caps and the fire loop clip name stay config-file only.
     /// </summary>
     internal static class ModMenuBridge
     {
@@ -75,6 +75,72 @@ namespace HumanHostExplosives
                     "Multiplier on the bright flash and fireball. 1 is the original look."),
                 new ModMenu.ModMenuSetting(Plugin.NailbombParticulateScale, "Debris and smoke scale", "Nail bomb",
                     "Multiplier on debris and smoke. 1 is the original look."),
+
+                // --- Contact grenade ---
+                new ModMenu.ModMenuSetting(Plugin.EnableContactGrenade, "Enable contact grenade", "Contact grenade",
+                    "Register the impact-fused grenade." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.ContactDamage, "Damage at center", "Contact grenade",
+                    "Damage at the blast point, falling off to zero at the damage radius."),
+                new ModMenu.ModMenuSetting(Plugin.ContactRadius, "Damage radius (m)", "Contact grenade",
+                    "How far creature and player damage reaches."),
+                new ModMenu.ModMenuSetting(Plugin.ContactBuildableDamage, "Structure damage", "Contact grenade",
+                    "Flat damage to blocks and buildables within the effect radius."),
+                new ModMenu.ModMenuSetting(Plugin.ContactArmSeconds, "Arming time (s)", "Contact grenade",
+                    "Time after the throw before an impact sets it off. Earlier hits just bounce."),
+
+                // --- Molotov and fire ---
+                new ModMenu.ModMenuSetting(Plugin.EnableMolotov, "Enable Molotov", "Molotov and fire",
+                    "Register the Molotov cocktail." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.MolotovRadius, "Fire radius (m)", "Molotov and fire",
+                    "Size of the burning pool a Molotov leaves."),
+                new ModMenu.ModMenuSetting(Plugin.MolotovDuration, "Burn time (s)", "Molotov and fire",
+                    "How long the pool burns."),
+                new ModMenu.ModMenuSetting(Plugin.FireGroundDamage, "Fire damage per tick", "Molotov and fire",
+                    "Damage each tick to anyone standing in the fire."),
+                new ModMenu.ModMenuSetting(Plugin.FireTickSeconds, "Tick interval (s)", "Molotov and fire",
+                    "Time between fire damage ticks. Each tick staggers a zombie, so very short intervals stun-lock them."),
+                new ModMenu.ModMenuSetting(Plugin.BurnSeconds, "Zombies keep burning (s)", "Molotov and fire",
+                    "How long a zombie stays on fire after walking out. 0 = nothing catches fire."),
+                new ModMenu.ModMenuSetting(Plugin.BurnDamage, "Burning damage per tick", "Molotov and fire",
+                    "Damage each tick while a character is on fire."),
+                new ModMenu.ModMenuSetting(Plugin.PlayerCanCatchFire, "You can catch fire", "Molotov and fire",
+                    "Walk through fire and you burn too (needs self damage on)."),
+                new ModMenu.ModMenuSetting(Plugin.PlayerFireDamageMultiplier, "Fire damage to you", "Molotov and fire",
+                    "Multiplier on all fire damage you take."),
+                new ModMenu.ModMenuSetting(Plugin.FireBuildableDamage, "Fire structure damage", "Molotov and fire",
+                    "Damage per tick to blocks inside the fire. Off by default: it would burn concrete too."),
+                new ModMenu.ModMenuSetting(Plugin.FireLightLumens, "Fire light brightness", "Molotov and fire",
+                    "Brightness of the flickering light a fire casts. 0 = no light."),
+                new ModMenu.ModMenuSetting(Plugin.FireVolume, "Fire volume", "Molotov and fire",
+                    "Volume of the crackle."),
+
+                // --- Mines ---
+                new ModMenu.ModMenuSetting(Plugin.EnableMine, "Enable land mine", "Mines",
+                    "Register the land mine." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.EnableImprovisedMine, "Enable improvised mine", "Mines",
+                    "Register the improvised nail mine." + Restart),
+                new ModMenu.ModMenuSetting(Plugin.MinesTriggerOnPlayer, "Mines can hit you", "Mines",
+                    "Mines go off when you step near them, like the game's traps. They never arm while you stand next to one."),
+                new ModMenu.ModMenuSetting(Plugin.MineDamage, "Land mine damage", "Mines",
+                    "Damage at the centre of a land mine blast."),
+                new ModMenu.ModMenuSetting(Plugin.MineRadius, "Land mine radius (m)", "Mines",
+                    "How far land mine damage reaches."),
+                new ModMenu.ModMenuSetting(Plugin.MineTriggerRadius, "Land mine trigger distance (m)", "Mines",
+                    "How close something has to come to set a land mine off."),
+                new ModMenu.ModMenuSetting(Plugin.MineArmSeconds, "Land mine arming time (s)", "Mines",
+                    "Seconds after placing before a land mine is live."),
+                new ModMenu.ModMenuSetting(Plugin.ImprovisedMineDamage, "Improvised mine damage", "Mines",
+                    "Total shrapnel damage at the centre of an improvised mine."),
+                new ModMenu.ModMenuSetting(Plugin.ImprovisedMineRange, "Improvised mine range (m)", "Mines",
+                    "How far the nails fly."),
+                new ModMenu.ModMenuSetting(Plugin.ImprovisedMineTriggerRadius, "Improvised trigger distance (m)", "Mines",
+                    "How close something has to come to set an improvised mine off."),
+                new ModMenu.ModMenuSetting(Plugin.ImprovisedMineArmSeconds, "Improvised arming time (s)", "Mines",
+                    "Seconds after placing before an improvised mine is live."),
+                new ModMenu.ModMenuSetting(Plugin.ImprovisedMineDudChance, "Improvised dud chance", "Mines",
+                    "Chance an improvised mine just fizzes."),
+                new ModMenu.ModMenuSetting(Plugin.MinePlaceDistance, "Placing distance (m)", "Mines",
+                    "How far ahead of you a mine can be placed."),
 
                 // --- Throwing ---
                 new ModMenu.ModMenuSetting(Plugin.MinThrowSpeed, "Tap throw speed (m/s)", "Throwing",

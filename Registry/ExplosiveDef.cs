@@ -8,7 +8,12 @@ namespace HumanHostExplosives.Registry
     {
         Grenade,
         Molotov,
-        Nailbomb
+        Nailbomb,
+        // 0.3.0. Appended, never inserted: DebugThrowKind persists these by name, but keep the
+        // numeric values stable anyway.
+        ContactGrenade,
+        Mine,
+        ImprovisedMine
     }
 
     /// <summary>
@@ -33,6 +38,21 @@ namespace HumanHostExplosives.Registry
         internal string IconPngFileName;
 
         internal int MaxStack;
+
+        /// <summary>
+        /// Placed on the ground with a single LMB tap (MinePlacer) instead of charged and thrown.
+        /// The quick-throw key skips these - a mine is never lobbed.
+        /// </summary>
+        internal bool Placeable;
+
+        /// <summary>How many items one craft yields (PerIconData.craftNum - the UI shows "x N").</summary>
+        internal int CraftNum = 1;
+
+        /// <summary>
+        /// Read the OBJ's own vertex normals and weld corners (smooth shading) - see ObjLoader.
+        /// On for the Blender-made 0.3.0 models, off for the published grenade/nailbomb look.
+        /// </summary>
+        internal bool UseObjNormals;
 
         internal string TooltipName;
         internal string TooltipType;
@@ -81,6 +101,19 @@ namespace HumanHostExplosives.Registry
         /// explosive (e.g. Molotov before its model exists) is skipped instead of crashing
         /// registration for every other explosive.
         /// </summary>
+        /// <summary>
+        /// All three shipped files are on disk. Checked BEFORE a def is added to Plugin.Defs, so an
+        /// item with missing art never reaches the registry, a recipe or a loot table - an invented
+        /// GUID that never resolves makes the engine log 'Invalid path in AssetBundleProvider', which
+        /// the game treats as a corrupted install.
+        /// </summary>
+        internal bool ArtFilesPresent()
+        {
+            return File.Exists(AssetPaths.Resolve(ObjFileName))
+                && File.Exists(AssetPaths.Resolve(PngFileName))
+                && (string.IsNullOrEmpty(IconPngFileName) || File.Exists(AssetPaths.Resolve(IconPngFileName)));
+        }
+
         internal bool TryLoadMeshAndMaterial()
         {
             if (RuntimeMesh != null && RuntimeMaterial != null)
@@ -95,7 +128,7 @@ namespace HumanHostExplosives.Registry
                 return false;
             }
 
-            RuntimeMesh = ObjLoader.LoadMesh(objPath);
+            RuntimeMesh = ObjLoader.LoadMesh(objPath, UseObjNormals);
             RuntimeTexture = TextureLoader.LoadPng(pngPath);
 
             Shader shader = Shader.Find("HDRP/Lit");
@@ -109,6 +142,8 @@ namespace HumanHostExplosives.Registry
                 RuntimeMaterial = new Material(Shader.Find("Standard"));
                 RuntimeMaterial.mainTexture = RuntimeTexture;
             }
+            // Owner prefix so a global material sweep (the texture pack) skips it - MOD_CONVENTIONS §18.
+            RuntimeMaterial.name = "HHE_" + Tag + "_Mat";
 
             // A dedicated 2D icon image looks like an actual icon; the 3D model's diffuse
             // texture (used above for RuntimeMaterial) is a flat UV map, not a picture of the

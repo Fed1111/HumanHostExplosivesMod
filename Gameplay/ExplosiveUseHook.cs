@@ -54,6 +54,12 @@ namespace HumanHostExplosives
                     return;
                 }
 
+                if (def.Placeable)
+                {
+                    PlaceAndConsume(slot, def);
+                    return;
+                }
+
                 _chargingSlot = slot;
                 _chargingDef = def;
                 _chargeStartTime = Time.time;
@@ -230,6 +236,36 @@ namespace HumanHostExplosives
             }
 
             ExplosiveSpawner.Throw(def, camTrans, Player_Input.ins, throwSpeed);
+        }
+
+        /// <summary>
+        /// Mines: one tap places it, no charge and no throw animation. Consumed only if it was
+        /// actually placed - a refused spot (steep slope, too many mines) costs nothing.
+        /// </summary>
+        private static void PlaceAndConsume(Slot_Info slot, ExplosiveDef def)
+        {
+            bool placed = false;
+            try
+            {
+                placed = MinePlacer.TryPlace(def, Player_Input.ins);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Mine] placement threw: " + ex);
+            }
+            if (!placed)
+            {
+                return;
+            }
+
+            Item_Slot_Mgr mgr = Item_Slot_Mgr.Ins;
+            mgr.Item_Stack_Minus_1(slot);
+            // Same ghost-in-hand cleanup as the throw path; no animation to wait for here.
+            if (string.IsNullOrEmpty(slot._StackText))
+            {
+                mgr.Del_OnHand_Slot_Item(slot);
+                mgr.Hide_UseClickIcon();
+            }
         }
 
         private static void CancelCharge()

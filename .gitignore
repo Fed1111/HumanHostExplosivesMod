@@ -10,3 +10,4 @@ Assets/Grenade_raw/
 # Session-local Claude Code settings
 .claude/
 Workshop/upload/
+tools/_render/

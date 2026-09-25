@@ -150,6 +150,15 @@
       <HintPath>$(ManagedDir)\Sound_FX.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- HDRP: HDAdditionalLightData for the fire system's point light (Gameplay/FireFx.cs). -->
+    <Reference Include="Unity.RenderPipelines.HighDefinition.Runtime">
+      <HintPath>$(ManagedDir)\Unity.RenderPipelines.HighDefinition.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>$(ManagedDir)\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
       <!-- ModMenu (Workshop 3794527105): compile-time only, never shipped - players subscribe to it themselves. Soft dependency; see ModMenuBridge.cs. -->
     <Reference Include="ModMenu"><HintPath>$(ModMenuDll)</HintPath><Private>false</Private></Reference>
   </ItemGroup>
@@ -176,6 +185,17 @@
     <Copy SourceFiles="@(NailbombAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Nailbomb"
           ContinueOnError="true" />
+    <!-- 0.3.0 items. Only the files the mod loads: obj, png, icon (no .mtl, no previews). -->
+    <ItemGroup>
+      <MolotovAssets Include="$(MSBuildProjectDirectory)\Assets\Molotov\*.obj;$(MSBuildProjectDirectory)\Assets\Molotov\*.png" />
+      <ContactAssets Include="$(MSBuildProjectDirectory)\Assets\ContactGrenade\*.png" />
+      <MineAssets Include="$(MSBuildProjectDirectory)\Assets\Mine\*.obj;$(MSBuildProjectDirectory)\Assets\Mine\*.png" />
+      <ImprovisedMineAssets Include="$(MSBuildProjectDirectory)\Assets\ImprovisedMine\*.obj;$(MSBuildProjectDirectory)\Assets\ImprovisedMine\*.png" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MolotovAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Molotov" ContinueOnError="true" />
+    <Copy SourceFiles="@(ContactAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ContactGrenade" ContinueOnError="true" />
+    <Copy SourceFiles="@(MineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Mine" ContinueOnError="true" />
+    <Copy SourceFiles="@(ImprovisedMineAssets)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\ImprovisedMine" ContinueOnError="true" />
     <Copy SourceFiles="@(AnimAssets)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Assets\Anim"
           ContinueOnError="true" />

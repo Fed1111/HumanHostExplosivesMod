@@ -185,6 +185,16 @@ namespace HumanHostExplosives.Registry
 
                 _built = true;
                 Plugin.Log.LogInfo($"[Registry] {registered.Count / 2} explosive item(s) registered.");
+
+                // Load the borrowed fire visuals now, during world load, not on the first throw.
+                try
+                {
+                    FireFx.Preload();
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log.LogWarning("[Fire] preload failed: " + ex.Message);
+                }
                 return true;
             }
             catch (Exception ex)

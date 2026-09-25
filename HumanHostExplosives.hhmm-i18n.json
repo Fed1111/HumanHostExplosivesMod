@@ -53,6 +53,96 @@
     "NailbombParticulateScale": {
       "en": "Debris and smoke scale"
     },
+    "EnableContactGrenade": {
+      "en": "Enable contact grenade"
+    },
+    "ContactDamage": {
+      "en": "Damage at center"
+    },
+    "ContactRadius": {
+      "en": "Damage radius (m)"
+    },
+    "ContactBuildableDamage": {
+      "en": "Structure damage"
+    },
+    "ContactArmSeconds": {
+      "en": "Arming time (s)"
+    },
+    "EnableMolotov": {
+      "en": "Enable Molotov"
+    },
+    "MolotovRadius": {
+      "en": "Fire radius (m)"
+    },
+    "MolotovDuration": {
+      "en": "Burn time (s)"
+    },
+    "FireGroundDamage": {
+      "en": "Fire damage per tick"
+    },
+    "FireTickSeconds": {
+      "en": "Tick interval (s)"
+    },
+    "BurnSeconds": {
+      "en": "Zombies keep burning (s)"
+    },
+    "BurnDamage": {
+      "en": "Burning damage per tick"
+    },
+    "PlayerCanCatchFire": {
+      "en": "You can catch fire"
+    },
+    "PlayerFireDamageMultiplier": {
+      "en": "Fire damage to you"
+    },
+    "FireBuildableDamage": {
+      "en": "Fire structure damage"
+    },
+    "FireLightLumens": {
+      "en": "Fire light brightness"
+    },
+    "FireVolume": {
+      "en": "Fire volume"
+    },
+    "EnableMine": {
+      "en": "Enable land mine"
+    },
+    "EnableImprovisedMine": {
+      "en": "Enable improvised mine"
+    },
+    "MinesTriggerOnPlayer": {
+      "en": "Mines can hit you"
+    },
+    "MineDamage": {
+      "en": "Land mine damage"
+    },
+    "MineRadius": {
+      "en": "Land mine radius (m)"
+    },
+    "MineTriggerRadius": {
+      "en": "Land mine trigger distance (m)"
+    },
+    "MineArmSeconds": {
+      "en": "Land mine arming time (s)"
+    },
+    "ImprovisedMineDamage": {
+      "en": "Improvised mine damage"
+    },
+    "ImprovisedMineRange": {
+      "en": "Improvised mine range (m)"
+    },
+    "ImprovisedMineTriggerRadius": {
+      "en": "Improvised trigger distance (m)"
+    },
+    "ImprovisedMineArmSeconds": {
+      "en": "Improvised arming time (s)"
+    },
+    "ImprovisedMineDudChance": {
+      "en": "Improvised dud chance"
+    },
+    "MinePlaceDistance": {
+      "en": "Placing distance (m)"
+    },
     "MinThrowSpeed": {
       "en": "Tap throw speed (m/s)"
     },
@@ -162,6 +252,96 @@
     },
     "NailbombParticulateScale": {
       "en": "Multiplier on debris and smoke. 1 is the original look."
+    },
+    "EnableContactGrenade": {
+      "en": "Register the impact-fused grenade. Takes effect after restarting the game."
+    },
+    "ContactDamage": {
+      "en": "Damage at the blast point, falling off to zero at the damage radius."
+    },
+    "ContactRadius": {
+      "en": "How far creature and player damage reaches."
+    },
+    "ContactBuildableDamage": {
+      "en": "Flat damage to blocks and buildables within the effect radius."
+    },
+    "ContactArmSeconds": {
+      "en": "Time after the throw before an impact sets it off. Earlier hits just bounce."
+    },
+    "EnableMolotov": {
+      "en": "Register the Molotov cocktail. Takes effect after restarting the game."
+    },
+    "MolotovRadius": {
+      "en": "Size of the burning pool a Molotov leaves."
+    },
+    "MolotovDuration": {
+      "en": "How long the pool burns."
+    },
+    "FireGroundDamage": {
+      "en": "Damage each tick to anyone standing in the fire."
+    },
+    "FireTickSeconds": {
+      "en": "Time between fire damage ticks. Each tick staggers a zombie, so very short intervals stun-lock them."
+    },
+    "BurnSeconds": {
+      "en": "How long a zombie stays on fire after walking out. 0 = nothing catches fire."
+    },
+    "BurnDamage": {
+      "en": "Damage each tick while a character is on fire."
+    },
+    "PlayerCanCatchFire": {
+      "en": "Walk through fire and you burn too (needs self damage on)."
+    },
+    "PlayerFireDamageMultiplier": {
+      "en": "Multiplier on all fire damage you take."
+    },
+    "FireBuildableDamage": {
+      "en": "Damage per tick to blocks inside the fire. Off by default: it would burn concrete too."
+    },
+    "FireLightLumens": {
+      "en": "Brightness of the flickering light a fire casts. 0 = no light."
+    },
+    "FireVolume": {
+      "en": "Volume of the crackle."
+    },
+    "EnableMine": {
+      "en": "Register the land mine. Takes effect after restarting the game."
+    },
+    "EnableImprovisedMine": {
+      "en": "Register the improvised nail mine. Takes effect after restarting the game."
+    },
+    "MinesTriggerOnPlayer": {
+      "en": "Mines go off when you step near them, like the game's traps. They never arm while you stand next to one."
+    },
+    "MineDamage": {
+      "en": "Damage at the centre of a land mine blast."
+    },
+    "MineRadius": {
+      "en": "How far land mine damage reaches."
+    },
+    "MineTriggerRadius": {
+      "en": "How close something has to come to set a land mine off."
+    },
+    "MineArmSeconds": {
+      "en": "Seconds after placing before a land mine is live."
+    },
+    "ImprovisedMineDamage": {
+      "en": "Total shrapnel damage at the centre of an improvised mine."
+    },
+    "ImprovisedMineRange": {
+      "en": "How far the nails fly."
+    },
+    "ImprovisedMineTriggerRadius": {
+      "en": "How close something has to come to set an improvised mine off."
+    },
+    "ImprovisedMineArmSeconds": {
+      "en": "Seconds after placing before an improvised mine is live."
+    },
+    "ImprovisedMineDudChance": {
+      "en": "Chance an improvised mine just fizzes."
+    },
+    "MinePlaceDistance": {
+      "en": "How far ahead of you a mine can be placed."
     },
     "MinThrowSpeed": {
       "en": "Throw speed for a tap with no hold."

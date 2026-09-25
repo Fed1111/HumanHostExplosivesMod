@@ -61,9 +61,23 @@ namespace HumanHostExplosives
             {
                 case ExplosiveKind.Grenade:
                     var grenade = go.AddComponent<GrenadeProjectile>();
-                    grenade.MaxDamage = Plugin.ExplosionDamage.Value;
+                    grenade.Blast = Blast.Grenade();
                     grenade.Thrower = thrower;
                     break;
+                case ExplosiveKind.ContactGrenade:
+                    var contact = go.AddComponent<GrenadeProjectile>();
+                    contact.Blast = Blast.ContactGrenade();
+                    contact.ImpactFuse = true;
+                    contact.ArmSeconds = Plugin.ContactArmSeconds.Value;
+                    contact.FuseSeconds = 8f;
+                    contact.Thrower = thrower;
+                    break;
+                case ExplosiveKind.Mine:
+                case ExplosiveKind.ImprovisedMine:
+                    // Placed, never thrown (MinePlacer) - callers route placeable defs away from here.
+                    Object.Destroy(go);
+                    Plugin.Log.LogWarning($"[Explosive] '{def.Tag}' is placeable, not throwable.");
+                    return null;
                 case ExplosiveKind.Nailbomb:
                     var nailbomb = go.AddComponent<NailbombProjectile>();
                     nailbomb.MaxDamage = Plugin.NailbombDamage.Value;

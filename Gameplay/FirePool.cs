@@ -1,75 +1,185 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace HumanHostExplosives
 {
     /// <summary>
-    /// A lingering AoE fire effect left behind by a detonated Molotov: ticks falloff damage on
-    /// a timer for its duration, then removes itself. A runtime-built ParticleSystem stands in
-    /// for real fire VFX since no reusable fire/campfire effect was found to borrow.
+    /// A patch of burning fuel left by a Molotov. The game has no fire system of its own, so this
+    /// is the mod's: every FireTickSeconds it damages and ignites (BurnManager) every character
+    /// standing in it, shows borrowed torch flames (FireFx) with a flickering light, and plays a
+    /// crackle loop. It dies down over its last 1.5 s instead of vanishing.
+    ///
+    /// Pools are capped (MaxFirePools): lighting one more puts the oldest out early, which also
+    /// bounds the number of point lights.
     /// </summary>
     internal class FirePool : MonoBehaviour
     {
-        public float Radius = 4f;
-        public float TickDamage = 8f;
-        public float TickInterval = 0.5f;
-        public float Duration = 6f;
+        private const float FadeSeconds = 1.5f;
+
+        internal static readonly List<FirePool> Active = new List<FirePool>();
+        private static readonly Collider[] Buffer = new Collider[64];
+        private static readonly HashSet<C_Controller_Base> Seen = new HashSet<C_Controller_Base>();
+
+        public float Radius = 3f;
+        public float Duration = 10f;
         public C_Controller_Base Thrower;
 
         private float _elapsed;
-        private float _sinceLastTick;
+        private float _nextTick;
+        private ParticleSystem[] _fx;
+        private Light _light;
+        private float _lightBase;
+        private AudioSource _loop;
+        private bool _fading;
+        private float _noiseSeed;
+
+        internal static FirePool Spawn(Vector3 position, float radius, float duration, C_Controller_Base thrower)
+        {
+            Active.RemoveAll(p => p == null);
+            while (Active.Count >= Mathf.Max(1, Plugin.MaxFirePools.Value))
+            {
+                FirePool oldest = Active[0];
+                Active.RemoveAt(0);
+                oldest.BeginFade();
+            }
+
+            var go = new GameObject("HHE_FirePool");
+            go.transform.position = position;
+            FirePool pool = go.AddComponent<FirePool>();
+            pool.Radius = radius;
+            pool.Duration = duration;
+            pool.Thrower = thrower;
+            Active.Add(pool);
+            return pool;
+        }
 
         private void Start()
         {
-            BuildFireVisual();
+            _noiseSeed = Random.value * 100f;
+            try
+            {
+                _fx = FireFx.SpawnPoolFx(transform, Radius);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Fire] pool fx failed: " + ex);
+            }
+            try
+            {
+                if (Plugin.FireLightLumens.Value > 0f)
+                {
+                    _light = FireFx.SpawnLight(transform, Plugin.FireLightLumens.Value, Radius * 3f + 4f);
+                    _lightBase = _light.intensity;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Fire] pool light failed: " + ex);
+            }
+            try
+            {
+                _loop = SmallSounds.StartFireLoop(transform);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Fire] pool sound failed: " + ex);
+            }
+        }
+
+        /// <summary>Puts the pool out early (cap reached) - it dies down over FadeSeconds.</summary>
+        internal void BeginFade()
+        {
+            if (_elapsed < Duration - FadeSeconds)
+            {
+                _elapsed = Duration - FadeSeconds;
+            }
         }
 
         private void Update()
         {
             _elapsed += Time.deltaTime;
-            _sinceLastTick += Time.deltaTime;
+            float remaining = Duration - _elapsed;
+            float strength = Mathf.Clamp01(remaining / FadeSeconds);
 
-            if (_sinceLastTick >= TickInterval)
+            if (!_fading && remaining <= FadeSeconds)
             {
-                _sinceLastTick = 0f;
-                try
+                _fading = true;
+                if (_fx != null)
                 {
-                    ExplosionDamage.Apply(transform.position, Radius, TickDamage, Thrower, hitFlyForce: 0f, hitReact: 0f);
-                }
-                catch (System.Exception ex)
-                {
-                    Plugin.Log.LogError($"[FirePool] ExplosionDamage.Apply threw: {ex}");
+                    foreach (ParticleSystem ps in _fx)
+                    {
+                        if (ps != null)
+                        {
+                            ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                        }
+                    }
                 }
             }
 
-            if (_elapsed >= Duration)
+            if (_light != null)
+            {
+                float flicker = 0.8f + 0.35f * Mathf.PerlinNoise(_noiseSeed, Time.time * 7f);
+                _light.intensity = _lightBase * flicker * strength;
+            }
+            if (_loop != null)
+            {
+                _loop.volume = Plugin.FireVolume.Value * strength * SmallSounds.Falloff(transform.position, 30f);
+            }
+
+            if (!_fading && Time.time >= _nextTick)
+            {
+                _nextTick = Time.time + Mathf.Max(0.25f, Plugin.FireTickSeconds.Value);
+                try
+                {
+                    Burn();
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogError("[Fire] pool tick threw: " + ex);
+                }
+            }
+
+            // Let the last flames finish their lifetime before the object goes.
+            if (_elapsed >= Duration + 1.2f)
             {
                 Destroy(gameObject);
             }
         }
 
-        private void BuildFireVisual()
+        private void Burn()
         {
-            var ps = gameObject.AddComponent<ParticleSystem>();
-            ParticleSystem.MainModule main = ps.main;
-            main.startColor = new Color(1f, 0.45f, 0.1f, 0.9f);
-            main.startSpeed = 1.5f;
-            main.startSize = 0.6f;
-            main.startLifetime = 0.8f;
-            main.maxParticles = 80;
-
-            ParticleSystem.EmissionModule emission = ps.emission;
-            emission.rateOverTime = 40f;
-
-            ParticleSystem.ShapeModule shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = Mathf.Max(0.1f, Radius * 0.5f);
-
-            Shader shader = Shader.Find("HDRP/Unlit") ?? Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Sprites/Default");
-            if (shader != null)
+            Vector3 p = transform.position;
+            int mask = Global_Infos.ins != null ? Global_Infos.ins.Mask_Creature.value : -1;
+            int n = Physics.OverlapCapsuleNonAlloc(p - Vector3.up * 0.3f, p + Vector3.up * 1.8f, Radius, Buffer, mask,
+                                                    QueryTriggerInteraction.Ignore);
+            Seen.Clear();
+            for (int i = 0; i < n; i++)
             {
-                var renderer = ps.GetComponent<ParticleSystemRenderer>();
-                renderer.material = new Material(shader);
+                C_Controller_Base ctrl = FireDamage.Resolve(Buffer[i]);
+                if (ctrl == null || !Seen.Add(ctrl))
+                {
+                    continue;
+                }
+                // Horizontal distance: the capsule is round at the ends, the fire is a flat disc.
+                Vector3 d = ctrl.transform.position - p;
+                d.y = 0f;
+                if (d.sqrMagnitude > Radius * Radius)
+                {
+                    continue;
+                }
+                FireDamage.Tick(ctrl, Plugin.FireGroundDamage.Value, Thrower);
+                BurnManager.Ignite(ctrl, Thrower);
             }
+
+            if (Plugin.FireBuildableDamage.Value > 0f)
+            {
+                ExplosionDamage.ApplyToBuildables(p, Radius, Plugin.FireBuildableDamage.Value);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            Active.Remove(this);
         }
     }
 }

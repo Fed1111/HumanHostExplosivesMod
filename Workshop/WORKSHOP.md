@@ -20,6 +20,11 @@ HumanHostExplosives/
   HumanHostExplosives.dll
   Grenade/grenade.obj, grenade.mtl, grenade.png, grenade_icon.png, preview.png
   Nailbomb/nailbomb.obj, nailbomb.mtl, nailbomb.png, nailbomb_icon.png
+  Molotov/molotov.obj, molotov.png, molotov_icon.png               (0.3.0)
+  ContactGrenade/contact_grenade.png, contact_grenade_icon.png     (0.3.0 - mesh is Grenade/grenade.obj)
+  Mine/mine.obj, mine.png, mine_icon.png                           (0.3.0)
+  ImprovisedMine/improvised_mine.obj, .png, _icon.png              (0.3.0)
+  HumanHostExplosives.hhmm-i18n.json
   Assets/Anim/throwanim.bundle
 ```
 
@@ -70,64 +75,66 @@ The falloff chart images were rendered 2026-09-17 from an interactive HTML chart
 
 ## Title
 
-    Explosives — Grenades & Nail Bombs
+    Explosives — Grenades, Molotovs & Mines
 
 ## Short description
 
-    Craftable frag grenades and improvised nail bombs, both with real throw animations. Damages
-    players, creatures and buildings. Fully configurable.
+    Craftable grenades, contact grenades, nail bombs, Molotovs with real fire, and placeable land
+    mines. Throw animations, structural damage, zombies that burn. Fully configurable.
 
 ## Description (Steam BBCode)
 
 ```
 [h1]Explosives[/h1]
-Craftable explosives for Human Host — with proper throw animations, real structural damage,
-and everything tunable.
+Craftable explosives for Human Host. Proper throw animations, real structural damage, fire that
+spreads to zombies, mines, and everything tunable.
 
 [h2]What it adds[/h2]
 [list]
-[*][b]Hand grenades[/b] you craft at the Gun Workbench, or find in loot. Uniform area damage
-that ignores geometry — the refined, "boom now" option.
-[*][b]Nail bombs[/b] you craft by hand, no workbench needed. A crude pipe bomb: fires a spread
-of shrapnel that only damages what it can actually reach in a straight line, so cover matters.
-Weaker against structures than a grenade, nastier against soft targets, and can cause bleeding.
-[*][b]Hold to charge[/b] — throw distance scales with how long you hold the button.
-[*][b]Real throw animations[/b] on the player character, with the game's own swing sound.
-[*][b]Damage that lands[/b] — players, creatures, and buildings, through the game's own
-structural damage systems, so walls break the way the game intends.
+[*][b]Grenade[/b] (Gun Workbench): 3 second fuse, area damage that respects cover, breaks walls.
+[*][b]Contact grenade[/b] (Gun Workbench): explodes on the first thing it hits. A slightly smaller
+charge than the grenade.
+[*][b]Molotov cocktail[/b] (hand-crafted): shatters into a pool of fire. Zombies that walk through
+catch fire and keep burning. So can you. The flames and light are the game's own torch effects.
+[*][b]Nail bomb[/b] (hand-crafted): a crude pipe bomb that sprays shrapnel. Cover blocks it, it's
+brutal in the open, it's weak against walls, and it can make you bleed.
+[*][b]Land mine[/b] (Gun Workbench): tap LMB to put it on the ground where you are looking. It arms
+once you step away, blinks red, and blows up whatever comes close. Nearby blasts set mines off.
+[*][b]Improvised mine[/b] (hand-crafted, Trap tab): nails in a can on a spring trigger. It clicks
+before it blows, and sometimes it doesn't go off at all.
+[*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
+[*]Explosions and breaking glass [b]draw zombies[/b] to the spot, not to you, so a throw works as a
+distraction. Lure them onto a mine.
 [/list]
 
 [h2]Recipes[/h2]
-[b]Grenade[/b] (Gun Workbench):
-[list]
-[*]2 × Iron Ingot — the casing
-[*]5 × Gun Powder — the filler
-[*]3 × Duct Tape — holds it together
-[/list]
-[b]Nail bomb[/b] (hand-crafted, no workbench):
-[list]
-[*]5 × Nails — the shrapnel
-[*]5 × Nitrate Powder — a cruder filler than Gun Powder, made at the Biochemical Workbench
-[*]3 × Duct Tape — holds it together
-[/list]
-Both use mid/late-game Chemistry products, so neither lands as a day-one item.
+[b]Grenade[/b]: 2 Iron Ingot, 5 Gun Powder, 1 Spring
+[b]Contact grenade[/b]: 2 Iron Ingot, 4 Gun Powder, 1 Spring, 1 Scrap Brass
+[b]Land mine[/b]: 2 Steel Ingot, 8 Gun Powder, 2 Spring, 1 Electrical Wire
+[b]Molotov[/b]: 1 Glass, 2 Alcohol, 1 Torn Cloth, 1 Tree Sap
+[b]Nail bomb[/b]: 5 Nails, 5 Nitrate Powder, 2 Duct Tape, 1 Scrap Iron
+[b]Improvised mine[/b]: 3 Scrap Iron, 6 Nails, 6 Nitrate Powder, 1 Spring
+The hand-crafted items use junk and Nitrate Powder. The Gun Workbench items need refined metal and
+Gun Powder.
 
 [h2]Loot[/h2]
-Both items are added to existing loot tags rather than given a new spawn rate of their own, so
-they turn up only where that kind of item already appears, at that rarity — and they respect
-your loot-rate setting and looting skill automatically.
+Grenades, contact grenades, nail bombs and land mines can turn up in military and ammo loot. They
+use existing loot tags, so they respect your loot-rate setting. Molotovs and improvised mines are
+home-made: you craft those.
 
 [h2]Configuration[/h2]
-Everything is in [i]BepInEx/config/com.nf.humanhostexplosives.cfg[/i] — blast radius,
-damage, self-damage, fuse, throw power, animation speed, release timing, sound, loot tags. Press
-[b]F7[/b] in game to reload the config without restarting.
+All settings are in-game under Settings > Mods if you have [b]ModMenu[/b], and in the [b]Human
+Host Mod Manager[/b]. They are also in [i]BepInEx/config/com.nf.humanhostexplosives.cfg[/i].
 
 [h2]Requirements[/h2]
-BepInEx 5. Singleplayer tested.
+BepInEx 5. Tested in singleplayer. Install with the in-game mod browser OR the Mod Manager, not
+both, and never copy the DLL out of its folder.
 
 [h2]Known limits[/h2]
 [list]
-[*]Molotov is registered but disabled — waiting on a 3D model.
+[*]Placed mines and burning fires are not saved. They are gone after you quit or load.
+[*]Mines hurt you too by default, like the game's own traps. They never arm while you are next to
+one. Turn off "Mines can hit you" if you'd rather they only hit hostiles.
 [*]Not tested in multiplayer.
 [/list]
 ```
@@ -159,3 +166,19 @@ render as sliders. Change note for the upload: `Workshop/changenote-0.2.2.txt`. 
 Also ships `<Dll>.hhmm-i18n.json` (generated by `HumanHost Audit/tools/gen_hhmm_sidecars.py`) so
 the Human Host Mod Manager (Workshop 3740140784) shows the same labels and short descriptions;
 see MOD_CONVENTIONS.md #39.
+
+## 0.3.0 (2026-09-25) - Molotov, contact grenade, mines, fire system, recipe revamp
+
+Four new items: Molotov (it now has art, and there is a mod-side fire system), contact grenade,
+land mine and improvised mine. The recipes for all six items were reworked. Changes:
+`Workshop/changenote-0.3.0.txt`.
+
+- Art is procedural. `tools/make_models.py` (Blender 4.2, headless) builds the meshes, bakes the
+  diffuse textures and renders the icons. `tools/finish_icons.py` crops the icons to 256.
+  `tools/check_assets.py` validates every shipped file and must pass before upload.
+- The Workshop images were regenerated with `HumanHost Audit/tools/make_art.py
+  extracted_textures/material_icons <Workshop dir>`. The material icons were extracted from
+  `resource_items_icon_assets_all_*.bundle`.
+- Recipe defaults changed, so `BindMigrated` in Plugin.cs migrates any upgrader value that still
+  equals the 0.2.x default (§48). A fresh config skips that migration.
+- Nothing in 0.3.0 has been run in-game yet.
