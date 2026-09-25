@@ -135,6 +135,34 @@ namespace HumanHostExplosives
         }
     }
 
+    /// <summary>
+    /// The wall pieces the game drops when an explosive cuts a zone wall (Smash_Fallen_Manager.Fall_Shard)
+    /// get only a small random nudge (5 m/s from a random point up to 4 m away). Near a blast, add a
+    /// real push away from the charge, so the structure's own pieces are blown out, not just let go.
+    /// </summary>
+    [HarmonyLib.HarmonyPatch(typeof(Smash_Fallen_Manager), "Fall_Shard")]
+    internal static class BlastPushFallingShards
+    {
+        private static void Postfix(Slice_Shard_Connect fallShard)
+        {
+            if (fallShard == null || !Plugin.DebrisChunks.Value)
+            {
+                return;
+            }
+            Vector3 pos = fallShard.transform.position;
+            if (!ExplosionDrops.NearMark(pos, 6f, out Vector3 blast))
+            {
+                return;
+            }
+            Rigidbody rb = fallShard.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.AddExplosionForce(Random.Range(7f, 12f), blast, 7f, 0.4f, ForceMode.VelocityChange);
+                rb.AddTorque(Random.insideUnitSphere * 3f, ForceMode.VelocityChange);
+            }
+        }
+    }
+
     /// <summary>Shrinks a debris chunk away at the end of its life, then removes it.</summary>
     internal class DebrisFade : MonoBehaviour
     {

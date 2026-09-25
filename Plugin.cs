@@ -470,11 +470,12 @@ namespace HumanHostExplosives
                 "Explosions next to a structure throw chunks of it (in its own material) outward. Visual only.");
             MaxDebrisChunks = Config.Bind("Performance", "MaxDebrisChunks", 80,
                 RangeInt("Most debris chunks flying at once.", 0, 300));
-            DemoCoreRadius = Config.Bind(
-                "RemoteCharge", "DemoCoreRadius", 3.5f,
+            DemoCoreRadius = BindMigrated(
+                "RemoteCharge", "DemoCoreRadius", 1.75f,
                 Range("Demolition charge: wall sections within this distance (m) are cut out completely; the rest of the " +
-                "structure falls through the game's own support check once they go. Larger = more destroyed, but slower " +
-                "(the game cuts one section at a time).", 1f, 8f));
+                "structure falls through the game's own support check once they go. Larger = more destroyed, but much slower " +
+                "(the game cuts one section at a time - 3.5 m was ~120 sections and ~30 s per charge).", 1f, 8f),
+                3.5f);
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
@@ -829,7 +830,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 5;
+        private const int CurrentConfigVersion = 6;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves

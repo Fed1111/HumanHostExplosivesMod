@@ -25,18 +25,50 @@ namespace HumanHostExplosives
         internal static int Scope;
 
         /// <summary>
-        /// Buildings an explosion just hit, and where. Zone walls pay their resources out from inside the
-        /// slice coroutine (Build_System:20153), frames after the hit and outside Scope - so a reward from
-        /// one of these within a few seconds also lands on the ground, at the blast point.
+        /// Where explosives are breaking things right now. Zone walls pay out from inside the slice coroutine
+        /// (Build_System:20153), and the collapse they start pays out for every block that comes down with
+        /// it - all frames or seconds later, outside Scope, and for blocks the blast never touched. So any
+        /// reward for an object within MarkRadius of a live mark also lands on the ground. Each queued
+        /// wall cut refreshes its mark, so the window lasts as long as the demolition does.
         /// </summary>
-        private static readonly Dictionary<GameObject, (Vector3 Point, float Until)> Recent = new Dictionary<GameObject, (Vector3, float)>();
+        private static readonly List<(Vector3 Point, float Until)> Marks = new List<(Vector3, float)>();
+        private const float MarkRadius = 25f;
 
         internal static void MarkRecent(GameObject building, Vector3 point)
         {
-            if (building != null)
+            float until = Time.time + 8f;
+            for (int i = Marks.Count - 1; i >= 0; i--)
             {
-                Recent[building] = (point, Time.time + 6f);
+                if (Marks[i].Until < Time.time)
+                {
+                    Marks.RemoveAt(i);
+                }
+                else if ((Marks[i].Point - point).sqrMagnitude < 1f)
+                {
+                    Marks[i] = (Marks[i].Point, until);
+                    return;
+                }
             }
+            Marks.Add((point, until));
+        }
+
+        /// <summary>The nearest live mark within radius of pos.</summary>
+        internal static bool NearMark(Vector3 pos, float radius, out Vector3 point)
+        {
+            point = pos;
+            float best = radius * radius;
+            bool found = false;
+            foreach (var m in Marks)
+            {
+                float d = (m.Point - pos).sqrMagnitude;
+                if (m.Until >= Time.time && d <= best)
+                {
+                    best = d;
+                    point = m.Point;
+                    found = true;
+                }
+            }
+            return found;
         }
 
         private static readonly MethodInfo DropItemMI = AccessTools.Method(typeof(Item_Slot_Mgr), "DropItem");
@@ -47,7 +79,9 @@ namespace HumanHostExplosives
             private static bool Prefix(Item_Slot_Mgr __instance, GameObject pickedBI_Obj, int pickStack, AssetReference pickIconRef,
                                        bool destroyOrigBI, bool isPropBI, ref bool __result)
             {
-                bool recent = pickedBI_Obj != null && Recent.TryGetValue(pickedBI_Obj, out var mark) && Time.time <= mark.Until;
+                Vector3 markPoint = Vector3.zero;
+                bool recent = pickedBI_Obj != null && NearMark(pickedBI_Obj.transform.position,
+                    pickedBI_Obj.CompareTag("ZoneSmashBI") ? 80f : MarkRadius, out markPoint); // a whole building's origin can be far off
                 if ((Scope <= 0 && !recent) || !Plugin.ExplosionResourcesOnGround.Value || DropItemMI == null || pickStack <= 0 ||
                     pickIconRef == null || string.IsNullOrEmpty(pickIconRef.AssetGUID))
                 {
@@ -56,8 +90,9 @@ namespace HumanHostExplosives
                 try
                 {
                     // A zone wall's "BI" is the whole building, whose origin can be metres away - use the hit point.
-                    Vector3 at = recent ? Recent[pickedBI_Obj].Point
-                        : pickedBI_Obj != null ? pickedBI_Obj.transform.position : Player_Input.ins.transform.position;
+                    Vector3 at = pickedBI_Obj == null ? Player_Input.ins.transform.position
+                        : recent && pickedBI_Obj.CompareTag("ZoneSmashBI") ? markPoint
+                        : pickedBI_Obj.transform.position;
                     at += new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.4f, UnityEngine.Random.Range(-0.4f, 0.4f));
                     if (!Drop(__instance, pickIconRef, pickStack, at))
                     {

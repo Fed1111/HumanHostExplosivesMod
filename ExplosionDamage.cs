@@ -360,6 +360,7 @@ namespace HumanHostExplosives
                     Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order - 0.0001f,
                     Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex,
                 });
+                if (job.Order < 1.25f)   // leftovers cleared only right at the charge: each piece is another slice
                 ZoneQueue.Add(new ZoneJob
                 {
                     Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order + 1000f,
