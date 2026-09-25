@@ -7,7 +7,7 @@ NEW: Remote charges (Gun Workbench), in two versions. The DEMOLITION charge is b
 NEW: Improvised mine (hand-crafted, Trap tab). A nail-packed can on a spring trigger. Nail shrapnel like the nail bomb, a crude trigger that clicks before it blows, and it sometimes fails to go off.
 Placing a mine: your character kneels and sets it down (it beeps). Mines are SAVED with your game, can be picked back up (look at one and press your interact key), and go off when shot or hit. They never arm while you are standing next to one.
 RECIPES reworked for all six items, with amounts in line with the game's own recipes. Hand-made bombs no longer need Nitrate Powder (late-game): the nail bomb and improvised mine now use 20-25 rounds of ANY ammo, any caliber and any mix, pulled apart for the powder. Grenade: 3 Iron Ingot, 10 Gun Powder, 8 Spring, 10 Scrap Brass. Nail bomb: 25 Nails, 20 ammo, 10 Duct Tape, 10 Scrap Iron, now on the hand-craft Melee tab next to the Molotov. Existing configs are updated automatically if you never changed those values, and your old config is backed up first.
-Grenades and contact grenades make the spoon (safety lever) rattle when thrown.
+NEW SOUNDS: every explosion type has its own set of recorded takes and picks one at random each time, so chains of blasts no longer repeat the same clip. Distant blasts arrive a moment later and quieter. Grenades pop their pin and spoon when thrown; mines and charges beep when placed.
 LOOT: explosives are rarer now - military containers only, and only about a third as common as other items there (Loot chance setting).
 Fix: an item whose art failed to load could still be added to loot tables.
 All new settings are in ModMenu and the Mod Manager.
