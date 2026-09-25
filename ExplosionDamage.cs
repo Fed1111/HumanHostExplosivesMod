@@ -299,6 +299,10 @@ namespace HumanHostExplosives
         private static void RunZoneJob(Smash_Fallen_Manager smash, ZoneJob job)
         {
             ExplosionDrops.MarkRecent(job.Bi.gameObject, job.Point);
+            if (job.Demolish || job.Stage > 0)
+            {
+                FastDemolitionSlicing.ActiveUntil = Time.time + 25f;   // covers the collapse that follows
+            }
             if (job.Stage > 0)
             {
                 RunDemolishStage(smash, job);

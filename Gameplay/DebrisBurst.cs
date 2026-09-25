@@ -150,14 +150,15 @@ namespace HumanHostExplosives
                 return;
             }
             Vector3 pos = fallShard.transform.position;
-            if (!ExplosionDrops.NearMark(pos, 6f, out Vector3 blast))
+            if (!ExplosionDrops.NearMark(pos, 4f, out Vector3 blast))
             {
                 return;
             }
             Rigidbody rb = fallShard.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.AddExplosionForce(Random.Range(7f, 12f), blast, 7f, 0.4f, ForceMode.VelocityChange);
+                // Only what sat next to the charge is thrown; the collapse above just falls.
+                rb.AddExplosionForce(Random.Range(8f, 13f), blast, 4.5f, 0.4f, ForceMode.VelocityChange);
                 rb.AddTorque(Random.insideUnitSphere * 3f, ForceMode.VelocityChange);
             }
         }
