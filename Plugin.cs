@@ -127,6 +127,10 @@ namespace HumanHostExplosives
         internal static ConfigEntry<string> FireLoopClipName;
         internal static ConfigEntry<int> MaxFirePools;
         internal static ConfigEntry<int> MaxBurning;
+        internal static ConfigEntry<bool> BurnPanic;
+        internal static ConfigEntry<bool> BurnScorch;
+        internal static ConfigEntry<int> BurnLights;
+        internal static ConfigEntry<int> BurnDetailedCount;
 
         internal static ConfigEntry<bool> EnableMine;
         internal static ConfigEntry<float> MineDamage;
@@ -371,7 +375,7 @@ namespace HumanHostExplosives
 
             // Config versions: 0 = 0.2.2 and earlier, 1 = the first 0.3.0 dev build (set only the old
             // MigratedDefaults030 flag - never published), 2 = recipe rework + mine tuning, 3 = loot moved to
-            // military containers only (LootTags). All unpublished dev steps; 0.3.0 ships at 3. A version NUMBER, not a
+            // military containers only (LootTags), 4 = MaxBurning 24 -> 48. All unpublished dev steps; 0.3.0 ships at 4. A version NUMBER, not a
             // done/not-done flag: the flag made every later default change invisible to anyone who had
             // already run the first 0.3.0 build (their recipes stayed at 1-2 of each - 2026-09-25).
             MigratedDefaults030 = Config.Bind(
@@ -804,7 +808,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 3;
+        private const int CurrentConfigVersion = 4;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
@@ -921,8 +925,19 @@ namespace HumanHostExplosives
                 "Empty, or not found, uses a synthesized crackle instead.");
             MaxFirePools = Config.Bind("Performance", "MaxFirePools", 6,
                 RangeInt("Most pools burning at once; lighting another puts the oldest out early. Each pool has one light.", 1, 16));
-            MaxBurning = Config.Bind("Performance", "MaxBurning", 24,
-                RangeInt("Most characters on fire at once. Beyond this nobody new catches fire (pools still hurt).", 1, 64));
+            MaxBurning = BindMigrated("Performance", "MaxBurning", 48,
+                RangeInt("Most characters on fire at once. Beyond this nobody new catches fire (pools still hurt). The " +
+                "expensive parts have their own smaller caps (BurnLights, BurnDetailedCount), so this can stay high.", 1, 96), 24);
+            BurnPanic = Config.Bind("Fire", "BurnPanic", true,
+                "A zombie that catches fire breaks into a run.");
+            BurnScorch = Config.Bind("Fire", "BurnScorch", true,
+                "Burning zombies darken toward charred the longer they burn (up close, where they are drawn as live bodies).");
+            BurnLights = Config.Bind("Performance", "BurnLights", 4,
+                RangeInt("How many burning characters (the nearest ones) cast their own flickering light. Lights are the " +
+                "costly part in HDRP. 0 = none.", 0, 12));
+            BurnDetailedCount = Config.Bind("Performance", "BurnDetailedCount", 8,
+                RangeInt("How many burning zombies (the nearest) are drawn as live bodies, so the flames follow their limbs " +
+                "and they scorch. The rest burn with flames placed along their body instead.", 0, 24));
 
             EnableMine = Config.Bind("Mine", "EnableMine", true,
                 "Register the manufactured mine. Equip it and tap LMB to place it on the ground in front of you. " +

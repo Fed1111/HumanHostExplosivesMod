@@ -184,13 +184,57 @@ namespace HumanHostExplosives
             return patches;
         }
 
-        /// <summary>Flames on a burning character. Simulated in world space so they trail.</summary>
-        internal static ParticleSystem SpawnBodyFlame(Transform parent)
+        /// <summary>
+        /// One flame on one body part of a burning character (BurnManager places one per limb). World-space
+        /// simulation, so flames trail behind a moving body and lick upward off it.
+        /// </summary>
+        internal static ParticleSystem SpawnBodyFlame(Transform parent, string name, float coneRadius, float rate, float sizeMin, float sizeMax)
         {
             Preload();
-            ParticleSystem fire = CopyOrFallback(_fireTemplate, parent, "HHE_BodyFire");
-            Configure(fire, coneRadius: 0.22f, rate: 14f, max: 30, sizeMin: 0.35f, sizeMax: 0.75f);
+            var holder = new GameObject(name);
+            holder.transform.SetParent(parent, worldPositionStays: false);
+            ParticleSystem fire = CopyOrFallback(_fireTemplate, holder.transform, name + "_fx");
+            Configure(fire, coneRadius: coneRadius, rate: rate, max: Mathf.RoundToInt(rate * 2.5f) + 4,
+                      sizeMin: sizeMin, sizeMax: sizeMax, lifeScale: 0.8f, speedScale: 0.9f);
             return fire;
+        }
+
+        /// <summary>Smoke streaming off a burning character (campfire fx_smoke, scaled down). Null if unavailable.</summary>
+        internal static ParticleSystem SpawnSmokeTrail(Transform parent)
+        {
+            Preload();
+            if (_smokeTemplate == null)
+            {
+                return null;
+            }
+            ParticleSystem ps = Copy(_smokeTemplate, parent, "HHE_BodySmoke");
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule main = ps.main;
+            main.loop = true;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 40;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.8f, 3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.14f, 0.13f, 0.12f, 0.5f), new Color(0.28f, 0.27f, 0.25f, 0.35f));
+            ParticleSystem.EmissionModule em = ps.emission;
+            em.enabled = true;
+            em.rateOverTime = 6f;
+            ParticleSystem.ShapeModule shape = ps.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.25f;
+            ParticleSystem.SizeOverLifetimeModule size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 2f));
+            ParticleSystem.VelocityOverLifetimeModule vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(0.2f, 0.5f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.5f, 1f);
+            vel.z = new ParticleSystem.MinMaxCurve(0.05f, 0.3f);
+            ps.Play(true);
+            return ps;
         }
 
         /// <summary>

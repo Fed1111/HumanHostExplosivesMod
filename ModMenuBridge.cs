@@ -113,6 +113,14 @@ namespace HumanHostExplosives
                     "Brightness of the flickering light a fire casts. 0 = no light."),
                 new ModMenu.ModMenuSetting(Plugin.FireVolume, "Fire volume", "Molotov and fire",
                     "Volume of the crackle."),
+                new ModMenu.ModMenuSetting(Plugin.BurnPanic, "Burning zombies run", "Molotov and fire",
+                    "A zombie that catches fire breaks into a run."),
+                new ModMenu.ModMenuSetting(Plugin.BurnScorch, "Scorch burning zombies", "Molotov and fire",
+                    "Burning zombies darken toward charred the longer they burn."),
+                new ModMenu.ModMenuSetting(Plugin.BurnLights, "Lights from burning bodies", "Molotov and fire",
+                    "How many of the nearest burning characters light up their surroundings. 0 = none."),
+                new ModMenu.ModMenuSetting(Plugin.BurnDetailedCount, "Detailed burning bodies", "Molotov and fire",
+                    "How many of the nearest burning zombies get flames that follow their limbs and scorch."),
 
                 // --- Mines ---
                 new ModMenu.ModMenuSetting(Plugin.EnableMine, "Enable land mine", "Mines",

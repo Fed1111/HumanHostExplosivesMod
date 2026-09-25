@@ -104,6 +104,18 @@
     "FireVolume": {
       "en": "Fire volume"
     },
+    "BurnPanic": {
+      "en": "Burning zombies run"
+    },
+    "BurnScorch": {
+      "en": "Scorch burning zombies"
+    },
+    "BurnLights": {
+      "en": "Lights from burning bodies"
+    },
+    "BurnDetailedCount": {
+      "en": "Detailed burning bodies"
+    },
     "EnableMine": {
       "en": "Enable land mine"
     },
@@ -333,6 +345,18 @@
     },
     "FireVolume": {
       "en": "Volume of the crackle."
+    },
+    "BurnPanic": {
+      "en": "A zombie that catches fire breaks into a run."
+    },
+    "BurnScorch": {
+      "en": "Burning zombies darken toward charred the longer they burn."
+    },
+    "BurnLights": {
+      "en": "How many of the nearest burning characters light up their surroundings. 0 = none."
+    },
+    "BurnDetailedCount": {
+      "en": "How many of the nearest burning zombies get flames that follow their limbs and scorch."
     },
     "EnableMine": {
       "en": "Register the land mine. Takes effect after restarting the game."
