@@ -293,7 +293,25 @@ namespace HumanHostExplosives.Registry
                     throw new InvalidOperationException(def.Tag + ": template model has no MeshFilter/MeshRenderer to swap");
                 }
                 filter.sharedMesh = def.RuntimeMesh;
-                renderer.sharedMaterial = def.RuntimeMaterial;
+                // Exactly ONE material slot: `sharedMaterial =` only replaces slot 0, and any extra slot
+                // the pickaxe template carries would draw its own texture over our single-submesh model
+                // (the "second texture on top" look, MOD_CONVENTIONS #56's cousin).
+                renderer.sharedMaterials = new[] { def.RuntimeMaterial };
+                // Likewise any other renderer in the template (a separate head/handle mesh) - ours is the
+                // only thing that should draw.
+                int hidden = 0;
+                foreach (Renderer other in clone.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (other != renderer && !(other is ParticleSystemRenderer) && other.enabled)
+                    {
+                        other.enabled = false;
+                        hidden++;
+                    }
+                }
+                if (hidden > 0)
+                {
+                    Plugin.Log.LogInfo($"[Registry] '{def.Tag}': hid {hidden} extra template renderer(s).");
+                }
 
                 // The mesh's own origin was authored independently of the template weapon's grip
                 // point, so swapping meshes alone can leave the held model sitting well off from
