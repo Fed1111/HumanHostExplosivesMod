@@ -571,6 +571,17 @@ namespace HumanHostExplosives
                 if (piece.Belong_Group == null) return "no shard group";
                 if (bi.top_Info != null && bi.top_Info.Is_Detecting_Battles) return "detecting (block being placed)";
                 if (bi._IsFurniBI && !bi.IsCoding) return "loading (furniture data)";
+                if (bi._IsFurniBI && piece.Belong_Group != null)
+                {
+                    foreach (Shards_Group c in piece.Belong_Group.Contacts)
+                    {
+                        Build_Info o = c != null ? c.BI : null;
+                        if (o != null && !o.IsCoding && o._Type == Build_Info.Type.SystemHouseBI && o._ItemType != Build_Info.ItemType.SysHouseBigWall)
+                        {
+                            return o._IsFurniBI ? "loading (connected furniture data)" : "loading (connected world-building piece)";
+                        }
+                    }
+                }
                 if (bi.top_Info != null && bi.top_Info.IsInLoading) return "loading (this structure)";
                 Traverse init = tr.Field("_buildInit");
                 if (init.Field("systemHouseManager").Field("InLoadingSystemHouse").GetValue<int>() > 0) return "loading (a world building nearby)";
@@ -609,6 +620,11 @@ namespace HumanHostExplosives
                     continue;
                 }
                 string why = RefusalReason(piece, t);
+                if (why.Contains("furniture"))
+                {
+                    EnsureFurnitureCoded(piece.FatherBI);
+                    why = RefusalReason(piece, t);
+                }
                 if (why == "unknown")
                 {
                     try
@@ -639,6 +655,89 @@ namespace HumanHostExplosives
             }
         }
 
+        private static readonly Collider[] FurniBuffer = new Collider[100];
+        private static System.Reflection.MethodInfo _furniHit;
+        private static SystemHouseManager _houseMgr;
+
+        /// <summary>
+        /// Mirrors SystemHouseManager's furniture contact pass (Check_Dis_For_Furnitures, Build_System:13704-13730):
+        /// overlap the piece's box on Mask_8_10, register each overlap through the game's own
+        /// Furni_Hit_BaI (which links the shard groups both ways and marks ground contact), then set
+        /// IsCoding. Done for the piece and for every uncoded furniture piece connected to it, because
+        /// Process_Smashed_Shard refuses a furniture smash while ANY connected world-building piece is
+        /// uncoded (:22202-22244).
+        /// </summary>
+        private static void EnsureFurnitureCoded(Build_Info start)
+        {
+            if (start == null || !start._IsFurniBI || start.IsCoding)
+            {
+                return;
+            }
+            try
+            {
+                if (_houseMgr == null)
+                {
+                    _houseMgr = UnityEngine.Object.FindObjectOfType<SystemHouseManager>();
+                }
+                if (_furniHit == null)
+                {
+                    _furniHit = AccessTools.Method(typeof(SystemHouseManager), "Furni_Hit_BaI");
+                }
+                if (_houseMgr == null || _furniHit == null || Global_Infos.ins == null)
+                {
+                    return;
+                }
+                int mask = Global_Infos.ins.Mask_8_10.value;
+                var waiting = Traverse.Create(_houseMgr).Field("_furniWaitContact").GetValue<HashSet<Build_Info>>();
+                var queue = new Queue<Build_Info>();
+                var seen = new HashSet<Build_Info> { start };
+                queue.Enqueue(start);
+                int coded = 0;
+                while (queue.Count > 0 && coded < 64)
+                {
+                    Build_Info bi = queue.Dequeue();
+                    if (bi != null && bi._IsFurniBI && !bi.IsCoding && bi.BaIs_All.Count > 0 && bi.shards_Groups.Count > 0)
+                    {
+                        Battle_Info first = bi.BaIs_All[0];
+                        if (first != null && first.selfMeshRender != null)
+                        {
+                            Vector3 center = first.selfMeshRender.bounds.center;
+                            Vector3 s = first.transform.lossyScale;
+                            Vector3 half = new Vector3(bi.Size.x * s.x, bi.Size.y * s.y, bi.Size.z * s.z) * 0.5f + Vector3.one * 0.02f;
+                            int n = Physics.OverlapBoxNonAlloc(center, half, FurniBuffer, first.transform.rotation, mask, QueryTriggerInteraction.Ignore);
+                            for (int i = 0; i < n; i++)
+                            {
+                                _furniHit.Invoke(_houseMgr, new object[] { FurniBuffer[i], bi });
+                            }
+                            bi.IsCoding = true;
+                            waiting?.Remove(bi);
+                            coded++;
+                        }
+                    }
+                    if (bi == null || bi.shards_Groups.Count == 0)
+                    {
+                        continue;
+                    }
+                    foreach (Shards_Group contact in bi.shards_Groups[0].Contacts)
+                    {
+                        Build_Info other = contact != null ? contact.BI : null;
+                        if (other != null && other._IsFurniBI && !other.IsCoding && seen.Add(other))
+                        {
+                            queue.Enqueue(other);
+                        }
+                    }
+                }
+                if (coded > 0)
+                {
+                    Plugin.Log.LogInfo($"[Demolition] prepared {coded} world-building furniture piece(s) for breaking (contact pass).");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] furniture contact pass failed: " + ex.Message);
+            }
+        }
+
         /// <summary>Breaks every shard of one block (demolition) - see ApplyToBuildables' wholeBlocks.</summary>
         private static int SmashWholeBlock(Build_Info buildInfo, TopOnHit topOnHit, HashSet<Battle_Info> alreadyHit)
         {
@@ -655,6 +754,12 @@ namespace HumanHostExplosives
                 Plugin.Log.LogWarning($"[Explosion] Spawn_BaIs_Under_BI threw for '{buildInfo.name}': {ex.Message}");
                 return 0;
             }
+            // World-building furniture pieces can't be broken until the game has worked out what they touch
+            // ("coded"), which it only does for pieces in its spawn queue near the player - support pieces
+            // left out of that queue refuse every hit ("Loading data... Please wait") and hold a building
+            // up forever. Do the game's own contact pass for this piece and its connected cluster first.
+            EnsureFurnitureCoded(buildInfo);
+
             int n = 0;
             // Copy first: smashing a shard can change the block's piece list.
             var pieces = new List<Battle_Info>(buildInfo.Spawned_BaIs);
