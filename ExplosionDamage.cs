@@ -214,6 +214,73 @@ namespace HumanHostExplosives
         /// mid-save.
         /// </param>
         /// <summary>Per-blast demolition tally, logged once per demolition blast (not diagnostics-gated).</summary>
+        private struct ZoneJob
+        {
+            internal Build_Info Bi;
+            internal Collider Col;
+            internal Vector3 Point;
+            internal float Damage;
+            internal float Order;    // blast batch, then distance from that blast
+            internal float Expire;
+        }
+
+        private static readonly List<ZoneJob> ZoneQueue = new List<ZoneJob>();
+        private static int _zoneBatch;
+        private static bool _zoneSorted = true;
+
+        /// <summary>
+        /// Called from Plugin.Update: hands queued zone-wall hits to the game one at a time, each as soon as
+        /// the previous slice has finished (_corSlice null; the shard path also waits out furniture
+        /// spawning). Walls come apart outward from the blast over a moment instead of only the first cell.
+        /// </summary>
+        internal static void TickZoneQueue()
+        {
+            if (ZoneQueue.Count == 0)
+            {
+                return;
+            }
+            Smash_Fallen_Manager smash = Smash_Fallen_Manager.ins;
+            if (smash == null)
+            {
+                return;
+            }
+            if (!_zoneSorted)
+            {
+                ZoneQueue.Sort((a, b) => a.Order.CompareTo(b.Order));
+                _zoneSorted = true;
+            }
+            int budget = 6;
+            while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null)
+            {
+                ZoneJob job = ZoneQueue[0];
+                ZoneQueue.RemoveAt(0);
+                if (job.Col == null || job.Bi == null || !job.Col.gameObject.activeInHierarchy || Time.time > job.Expire)
+                {
+                    continue;
+                }
+                try
+                {
+                    if (job.Col.CompareTag("ZoneSlice"))
+                    {
+                        if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+                        {
+                            ZoneQueue.Insert(0, job);   // shard path waits for furniture spawning too
+                            break;
+                        }
+                        smash.ZoneSmash_Shard_MinusHP(job.Bi, job.Point, job.Col, job.Damage, isFromPlayer: true);
+                    }
+                    else
+                    {
+                        smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, job.Col, job.Damage, isFromPlayer: true);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning($"[Explosion] zone hit on '{job.Bi.name}' threw: {ex.Message}");
+                }
+            }
+        }
+
         private static readonly Dictionary<string, int> _demoReasons = new Dictionary<string, int>();
         private static readonly List<(Battle_Info Piece, float GiveUpAt)> Deferred = new List<(Battle_Info, float)>();
         private static float _nextDeferredTry;
@@ -230,7 +297,7 @@ namespace HumanHostExplosives
             {
                 Plugin.Log.LogInfo($"[Demolition] {_demoBlocks} block(s) ({_demoHouseBlocks} of them world-building): {_demoShardsBroken} shard(s) broken, " +
                                    $"{_demoShardsRefused} refused by the game (loading/saving/furniture guard); " +
-                                   $"{_demoWalls} big wall(s) and {_demoZoneCells} zone cell(s) destroyed." +
+                                   $"{_demoWalls} big wall(s) destroyed, {_demoZoneCells} zone cell(s) queued to break." +
                                    (_demoReasons.Count > 0 ? " Refused because: " + string.Join(", ", ReasonList()) + "." : "") +
                                    (Deferred.Count > 0 ? $" {Deferred.Count} queued to retry." : ""));
             }
@@ -239,6 +306,8 @@ namespace HumanHostExplosives
 
         private static int ApplyToBuildablesCore(Vector3 center, float radius, float damage, bool wholeBlocks)
         {
+            _zoneBatch++;
+            _zoneSorted = false;
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
             Global_Infos globalInfos = Global_Infos.ins;
             if (smashMgr == null || globalInfos == null)
@@ -390,33 +459,25 @@ namespace HumanHostExplosives
                     // Get_RealZonePosRound lookup doesn't recognize a shard collider). Vanilla
                     // (TopOnHit.Hit_ZoneSmash_House) picks between the two with exactly this tag
                     // check.
-                    bool isAlreadySlicedShard = col.CompareTag("ZoneSlice");
-                    try
+                    // Queued, not called here: the game only actually slices a cell when no slice is already
+                    // running (Smash_Fallen_Manager._corSlice == null, Build_System ZoneSmash_*_MinusHP). Dozens of
+                    // calls in one frame zeroed every cell's HP but sliced ONE - the wall stood until hammered.
+                    // TickZoneQueue feeds them one at a time, nearest first. Hit point = the closest point on the
+                    // cell's own collider, as a real hit would report, not the blast centre.
+                    Vector3 hitPoint = col.ClosestPoint(center);
+                    ZoneQueue.Add(new ZoneJob
                     {
-                        // Demolition takes a zone cell straight out rather than chipping at it.
-                        float zoneDamage = wholeBlocks ? 1000000f : damage;
-                        if (isAlreadySlicedShard)
-                        {
-                            smashMgr.ZoneSmash_Shard_MinusHP(buildInfo, center, col, zoneDamage, isFromPlayer: true);
-                        }
-                        else
-                        {
-                            smashMgr.ZoneSmash_BI_MinusHP(buildInfo, center, col, zoneDamage, isFromPlayer: true);
-                        }
-                        if (wholeBlocks)
-                        {
-                            _demoZoneCells++;
-                        }
-                        hits++;
-                        if (Plugin.EnableDiagnostics.Value)
-                        {
-                            string method = isAlreadySlicedShard ? "ZoneSmash_Shard_MinusHP" : "ZoneSmash_BI_MinusHP";
-                            Plugin.Log.LogInfo($"[Explosion] ZoneSmashBI '{buildInfo.name}' via collider '{col.name}' ({method}): -{damage:F0} HP.");
-                        }
-                    }
-                    catch (System.Exception ex)
+                        Bi = buildInfo,
+                        Col = col,
+                        Point = hitPoint,
+                        Damage = wholeBlocks ? 1000000f : damage,
+                        Order = _zoneBatch * 10000f + Vector3.Distance(center, hitPoint),
+                        Expire = Time.time + 20f,
+                    });
+                    hits++;
+                    if (wholeBlocks)
                     {
-                        Plugin.Log.LogWarning($"[Explosion] ZoneSmash MinusHP threw for '{buildInfo.name}' via '{col.name}': {ex.Message}");
+                        _demoZoneCells++;
                     }
                     continue;
                 }
