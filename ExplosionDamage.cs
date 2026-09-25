@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using MLSpace;
 using UnityEngine;
@@ -537,8 +538,115 @@ namespace HumanHostExplosives
                                    $"{_demoWalls} big wall(s) destroyed, {_demoZoneCells} zone cell(s) queued to break." +
                                    (_demoReasons.Count > 0 ? " Refused because: " + string.Join(", ", ReasonList()) + "." : "") +
                                    (Deferred.Count > 0 ? $" {Deferred.Count} queued to retry." : ""));
+                if (_verifyPass == 0)
+                {
+                    ScheduleClearance(center, damage);
+                }
             }
             return result;
+        }
+
+        // ---- Blanket clearance --------------------------------------------------------------------------
+        // Demolition is judged by the END STATE, not by per-type bookkeeping: the game has several separate
+        // destruction systems (block shards, furniture, zone-wall cells and their cut pieces, big walls), and
+        // the same block can need a different one depending on its state that frame (pieces not spawned yet,
+        // cut but not dropped, furniture not "coded", a slice already running). So after the blast, the core
+        // (DemoCoreRadius around the charge) is swept again a few times with the full dispatch - whatever is
+        // still standing there, in whatever state it is NOW, gets the right treatment - and the last sweep
+        // logs anything that survived all of them, by type.
+
+        private static readonly float[] ClearanceDelays = { 0.5f, 2.5f, 6f };
+        private static readonly List<(Vector3 Center, float Damage, float At, int Pass, float WaitUntil)> Clearances = new List<(Vector3, float, float, int, float)>();
+        private static int _verifyPass;
+
+        private static void ScheduleClearance(Vector3 center, float damage)
+        {
+            Clearances.Add((center, damage, Time.time + ClearanceDelays[0], 1, Time.time + 25f));
+        }
+
+        /// <summary>Called from Plugin.Update (via TickDeferred).</summary>
+        private static void TickClearance()
+        {
+            for (int i = Clearances.Count - 1; i >= 0; i--)
+            {
+                var c = Clearances[i];
+                if (Time.time < c.At)
+                {
+                    continue;
+                }
+                Clearances.RemoveAt(i);
+                // Wait while the charge's own wall cutting is still queued - sweeping then would only
+                // re-queue what is already on its way down.
+                if (ZoneQueue.Count > 0 && Time.time < c.WaitUntil)
+                {
+                    Clearances.Add((c.Center, c.Damage, Time.time + 0.5f, c.Pass, c.WaitUntil));
+                    continue;
+                }
+                _verifyPass = c.Pass;
+                try
+                {
+                    int standing = CountStanding(c.Center, out string what);
+                    if (standing == 0)
+                    {
+                        Plugin.Log.LogInfo($"[Demolition] clearance pass {c.Pass}: the charge's core is clear.");
+                        continue;
+                    }
+                    Plugin.Log.LogInfo($"[Demolition] clearance pass {c.Pass}: {standing} thing(s) still standing in the core ({what}) - hitting again.");
+                    ApplyToBuildables(c.Center, Plugin.DemoCoreRadius.Value, c.Damage, wholeBlocks: true);
+                    if (c.Pass < ClearanceDelays.Length)
+                    {
+                        Clearances.Add((c.Center, c.Damage, Time.time + ClearanceDelays[c.Pass] - ClearanceDelays[c.Pass - 1], c.Pass + 1, Time.time + 25f));
+                    }
+                    else
+                    {
+                        LogWhatTheChargeSitsOn(c.Center, Physics.OverlapSphere(c.Center, Plugin.DemoCoreRadius.Value, StructureMask(), QueryTriggerInteraction.Ignore));
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning("[Demolition] clearance pass threw: " + ex);
+                }
+                finally
+                {
+                    _verifyPass = 0;
+                }
+            }
+        }
+
+        private static int StructureMask()
+        {
+            Global_Infos g = Global_Infos.ins;
+            return g == null ? 0 : g.Mask_Build.value | g.Mask_Battle.value | g.Mask_Scene.value;
+        }
+
+        /// <summary>Solid, still-standing structure colliders in the core, grouped by what they are.</summary>
+        private static int CountStanding(Vector3 center, out string what)
+        {
+            var byType = new Dictionary<string, int>();
+            int n = 0;
+            foreach (Collider c in Physics.OverlapSphere(center, Plugin.DemoCoreRadius.Value, StructureMask(), QueryTriggerInteraction.Ignore))
+            {
+                if (c == null || !c.enabled || c.GetComponent<Rigidbody>() != null)
+                {
+                    continue;   // falling pieces are on their way already
+                }
+                Build_Info bi = c.GetComponentInParent<Build_Info>();
+                if (bi == null || bi._Type == Build_Info.Type.TerrainTreeBI || bi._ItemType == Build_Info.ItemType.GroundDebris ||
+                    bi._ItemType == Build_Info.ItemType.SysHouseGrass)
+                {
+                    continue;
+                }
+                Battle_Info piece = c.GetComponent<Battle_Info>();
+                if (piece != null && (piece.Smashed || piece.Is_Fallen))
+                {
+                    continue;
+                }
+                string key = IsShardPiece(c) ? "cut wall piece" : $"{bi._Type}/{bi._ItemType}";
+                byType[key] = (byType.TryGetValue(key, out int k) ? k : 0) + 1;
+                n++;
+            }
+            what = string.Join(", ", byType.Select(kv => $"{kv.Key} x{kv.Value}"));
+            return n;
         }
 
         /// <summary>A demolition charge went off recently (its collapse can run on for a while after).</summary>
@@ -962,6 +1070,10 @@ namespace HumanHostExplosives
         /// </summary>
         internal static void TickDeferred()
         {
+            if (Clearances.Count > 0)
+            {
+                TickClearance();
+            }
             if (Deferred.Count == 0 || Time.time < _nextDeferredTry)
             {
                 return;
