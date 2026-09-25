@@ -175,13 +175,27 @@ namespace HumanHostExplosives
 
         private static void SpawnFireball(Transform parent, float radius, float flashScale)
         {
-            ParticleSystem ps = CreateBurstSystem(parent, "Fireball", Mathf.RoundToInt(160 * flashScale));
+            // One dense, billowing ball rather than a spray of separate flames: the flame sprites are
+            // campfire/torch flames, so flung out fast and far apart (the old 5-12 m/s from a 1.8 m sphere)
+            // each one read as its own torch. Now they start packed near the centre, big and overlapping,
+            // brake hard (drag) so the ball stays together, and swell as they burn out.
+            ParticleSystem ps = CreateBurstSystem(parent, "Fireball", Mathf.RoundToInt(240 * flashScale));
 
             ParticleSystem.MainModule main = ps.main;
             main.startColor = new Color(1f, 0.5f, 0.1f, 1f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 12f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 1.5f * Mathf.Sqrt(flashScale));
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.7f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 5.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(1.1f, 2.8f * Mathf.Sqrt(flashScale));
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.85f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);   // no two flames alike
+
+            ParticleSystem.LimitVelocityOverLifetimeModule limit = ps.limitVelocityOverLifetime;
+            limit.enabled = true;
+            limit.limit = 0.5f;
+            limit.dampen = 0.35f;
+
+            ParticleSystem.SizeOverLifetimeModule grow = ps.sizeOverLifetime;
+            grow.enabled = true;
+            grow.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.7f, 1f, 1.35f));
 
             ParticleSystem.ColorOverLifetimeModule colorOverLifetime = ps.colorOverLifetime;
             colorOverLifetime.enabled = true;
@@ -203,7 +217,7 @@ namespace HumanHostExplosives
 
             ParticleSystem.ShapeModule shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = Mathf.Max(0.2f, radius * 0.3f);
+            shape.radius = Mathf.Max(0.2f, radius * 0.1f);
 
             var renderer = ps.GetComponent<ParticleSystemRenderer>();
             if (_realFireMaterial != null)
