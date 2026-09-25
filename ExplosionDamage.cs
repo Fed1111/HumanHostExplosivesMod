@@ -353,18 +353,11 @@ namespace HumanHostExplosives
                 // A zone cell breaks in two stages: the hit above only PRE-cuts it into hidden shards (the
                 // wall still stands, at "0 / 1000"); the next hit on one of those shards is what shows them,
                 // drops the loose ones and runs the structure's fall check. Do that straight away - at the
-                // front of the queue, so each cell finishes before the next one starts - then clear the
-                // pieces left clinging to the edges once the whole blast has been cut.
+                // front of the queue, so each cell finishes before the next one starts.
                 ZoneQueue.Insert(0, new ZoneJob
                 {
                     Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order - 0.0001f,
                     Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex,
-                });
-                if (job.Order < 1.25f)   // leftovers cleared only right at the charge: each piece is another slice
-                ZoneQueue.Add(new ZoneJob
-                {
-                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order + 1000f,
-                    Expire = Time.time + 90f, Stage = 3, ChildIndex = childIndex,
                 });
                 _zoneSorted = false;
             }
@@ -412,7 +405,6 @@ namespace HumanHostExplosives
                 }
                 return;
             }
-            if (job.Stage == 2)
             {
                 // Nearest shard to the charge.
                 Collider best = StageShards[0];
@@ -426,15 +418,47 @@ namespace HumanHostExplosives
                         best = c;
                     }
                 }
+                // Every OTHER shard drops right now, through the game's own Fall_Shard (rigidbody, ground
+                // debris, cleanup, knocks down furniture resting on it). Left to the second stage, shards
+                // touching a still-standing neighbour cell count as "edge" pieces and stay put - so the cell
+                // the charge sits on, whose neighbours are all intact at that moment, was the LAST to go.
+                foreach (Collider c in StageShards)
+                {
+                    if (c != best)
+                    {
+                        DropShard(smash, (MeshCollider)c, job.Bi);
+                    }
+                }
+                // Then the second stage on the last one: shows/fractures it, pays the cell's resources, and
+                // with the cell now empty its own tidy-up marks it fully gone in the save (hasShardsLeft 0)
+                // and runs the structure's fall check.
                 smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: true);
-                return;
             }
-            // Stage 3: one shard per turn (each one is its own slice), then come back for the rest.
-            Collider shard = StageShards[0];
-            smash.ZoneSmash_Shard_MinusHP(job.Bi, shard.bounds.center, shard, job.Damage, isFromPlayer: true);
-            if (StageShards.Count > 1 && job.Tries < 40)
+        }
+
+        private static System.Reflection.MethodInfo _fallShard;
+
+        private static void DropShard(Smash_Fallen_Manager smash, MeshCollider mc, Build_Info zoneBI)
+        {
+            try
             {
-                Requeue(job);
+                if (_fallShard == null)
+                {
+                    _fallShard = AccessTools.Method(typeof(Smash_Fallen_Manager), "Fall_Shard");
+                }
+                // Pre-cut shards are hidden until the second stage shows them.
+                if (mc.TryGetComponent(out MeshRenderer mr))
+                {
+                    mr.enabled = true;
+                }
+                Slice_Shard_Connect connect = mc.gameObject.GetComponent<Slice_Shard_Connect>() ?? mc.gameObject.AddComponent<Slice_Shard_Connect>();
+                connect._MC = mc;
+                _fallShard.Invoke(smash, new object[] { connect, zoneBI, true });
+                UnityEngine.Object.Destroy(connect);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] dropping a wall piece threw: " + (ex.InnerException ?? ex).Message);
             }
         }
 
@@ -1082,6 +1106,23 @@ namespace HumanHostExplosives
                     {
                         _demoShardsRefused++;
                         string why = RefusalReason(piece, topOnHit);
+                        if (why == "unknown")
+                        {
+                            // None of the load/save/furniture guards is blocking (checked just above), yet it
+                            // didn't break. Run the smash with the guard pass skipped; everything it protects
+                            // has just been verified clear.
+                            topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true, forceRun: true);
+                            if (piece == null || piece.Smashed || piece.Is_Fallen)
+                            {
+                                n++;
+                                _demoShardsBroken++;
+                                _demoShardsRefused--;
+                                continue;
+                            }
+                            Plugin.Log.LogInfo($"[Demolition] '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}) piece '{piece.name}' " +
+                                               $"still standing after a forced smash: layer {piece.gameObject.layer}, " +
+                                               $"HP left {buildInfo.Shards_HP_Left}.");
+                        }
                         _demoReasons[why] = (_demoReasons.TryGetValue(why, out int c) ? c : 0) + 1;
                         // Loading/saving refusals are temporary: queue it and try again shortly
                         // (TickDeferred), rather than forcing past a guard that protects world loading.
