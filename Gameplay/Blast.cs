@@ -17,7 +17,8 @@ namespace HumanHostExplosives
         internal float Volume;
         internal bool WholeBlocks;   // demolition: break every block it touches completely (ApplyToBuildables)
         internal bool Heavy;         // sound bank: the deep, long "heavy" explosions
-        internal bool Metallic;      // sound bank: shrapnel blasts
+        internal bool Metallic;      // synthesized-sound fallback: the metallic variant
+        internal string Sound;       // sound bank category override (e.g. "ap"); null = from Heavy
     }
 
     /// <summary>
@@ -71,7 +72,7 @@ namespace HumanHostExplosives
 
             try
             {
-                ExplosionSound.Play(center, p.Volume, p.Metallic, p.Heavy);
+                ExplosionSound.Play(center, p.Volume, p.Metallic, p.Heavy, p.Sound);
             }
             catch (System.Exception ex)
             {

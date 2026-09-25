@@ -29,13 +29,15 @@ namespace HumanHostExplosives
         /// drier blast whose tail is a scatter of sharp high-frequency taps - fragments striking
         /// hard surfaces - instead of the grenade's low concussive echo.
         /// </summary>
-        internal static void Play(Vector3 position, float volume = 1f, bool metallic = false, bool heavy = false)
+        internal static void Play(Vector3 position, float volume = 1f, bool metallic = false, bool heavy = false, string category = null)
         {
-            // Recorded takes first (Sounds/<category>/*.wav, picked in-game - SoundBank): a random one
-            // per blast, heard later and quieter with distance. The synthesis below is the fallback.
-            string category = heavy ? "heavy" : metallic ? "shrapnel" : "grenade";
+            // Recorded takes first (Sounds/<category>/*.wav, picked by ear - SoundBank): a random one per
+            // blast, heard later and quieter with distance. shrapnel = the improvised items only; heavy =
+            // land mine + demolition; ap = the anti-personnel charge. Any category without takes falls
+            // back to the grenade takes, and then to the synthesis below.
+            category = category ?? (heavy ? "heavy" : metallic ? "shrapnel" : "grenade");
             if (SoundBank.Play(category, position, volume * 0.35f, 400f, 0.07f, distanceDelay: true)
-                || (heavy && SoundBank.Play("grenade", position, volume * 0.35f, 400f, 0.07f, distanceDelay: true)))
+                || (category != "grenade" && SoundBank.Play("grenade", position, volume * 0.35f, 400f, 0.07f, distanceDelay: true)))
             {
                 return;
             }

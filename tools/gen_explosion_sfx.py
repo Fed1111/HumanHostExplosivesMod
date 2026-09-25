@@ -23,19 +23,34 @@ import torch
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(REPO, "tools", "_sfx")
 NEG = "music, melody, speech, voice, talking, beeping, low quality, muffled, distorted clipping"
+# Extra negatives per category (appended to NEG).
+_NO_SURFACE = (", debris, dirt, rubble, gravel, stones, glass, falling objects, clatter, crumbling, "
+               "building collapse, metal clanking, long rumble, thunder")
+NEG_EXTRA = {"grenade": _NO_SURFACE, "heavy": _NO_SURFACE, "ap": _NO_SURFACE}
+# Low-cut (Hz) per category: "too low-endy" - the sub rumble is what makes a close blast sound like
+# a distant collapse.
+HIGHPASS = {"heavy": 90.0, "ap": 80.0, "grenade": 50.0}
+# Trim the tail at the last sample louder than this (dB below peak), then a short fade.
+TAIL_DB = -45.0
 
 # category -> (seconds, [prompts]); seeds cycle through the prompts so each category gets variety
 # in both wording and seed.
 CATEGORIES = {
+    # The explosion ITSELF, nothing else: no dirt, debris, rubble or glass (the blast lands on anything,
+    # and a surface-specific tail sounds wrong everywhere else). Heard from 10-20 m.
     "grenade": (4, [
-        "hand grenade explosion nearby, sharp powerful blast with a short echo, outdoors, realistic",
-        "frag grenade detonating, loud punchy explosion, dirt and debris falling, outdoors",
-        "military grenade explosion close range, crack and boom, reverberating off buildings",
+        "hand grenade explosion nearby, sharp powerful blast, short natural echo, clean isolated explosion sound",
+        "frag grenade detonation 15 meters away, loud punchy bang, brief reverb tail",
+        "close explosion, crisp loud boom with a quick decay, outdoors, isolated sound effect",
     ]),
-    "heavy": (5, [
-        "large demolition charge explosion, deep powerful boom, long rumble, rubble and debris falling",
-        "land mine detonation, heavy low explosion, ground shaking, dirt raining down, outdoors",
-        "c4 plastic explosive detonation, massive blast, concrete debris crashing down, echo",
+    "heavy": (4, [
+        "big explosion nearby, very loud powerful blast, punchy, short echo, clean isolated explosion sound",
+        "large explosive detonation 15 meters away, heavy hard boom, brief natural reverb",
+        "powerful close explosion, loud deep crack and boom, quick decay, isolated sound effect",
+    ]),
+    "ap": (3, [
+        "very sharp loud explosion close by, violent crack, short echo, clean isolated explosion sound",
+        "directional mine detonation 15 meters away, sharp punchy blast, brief tail, isolated sound effect",
     ]),
     "shrapnel": (4, [
         "pipe bomb explosion, sharp crack with metal shrapnel scattering and pinging, outdoors",
@@ -68,19 +83,38 @@ def pick_device():
     return "cpu"
 
 
-def clean(audio, sr, seconds):
-    """(C, N) float -> mono, trimmed to the attack, normalised, faded out."""
+def trim_tail(mono, sr):
+    """Cut right after the last sample above TAIL_DB (relative to peak), with a 30 ms fade."""
+    peak = np.max(np.abs(mono)) or 1.0
+    loud = np.nonzero(np.abs(mono) > peak * 10 ** (TAIL_DB / 20))[0]
+    end = int(loud[-1]) + 1 if len(loud) else len(mono)
+    fade = min(end, int(0.03 * sr))
+    mono = mono[:end].copy()
+    mono[end - fade:] *= np.linspace(1.0, 0.0, fade)
+    return mono
+
+
+def highpass(mono, sr, hz):
+    import torchaudio
+    t = torch.from_numpy(mono.astype(np.float32))[None]
+    for _ in range(2):  # two biquads = 24 dB/oct
+        t = torchaudio.functional.highpass_biquad(t, sr, hz)
+    return t[0].numpy()
+
+
+def clean(audio, sr, seconds, cat=""):
+    """(C, N) float -> mono, low-cut, trimmed to the attack and after the last audible sound, normalised."""
     mono = audio.mean(axis=0)
     mono = mono[: int(seconds * sr)]
+    if cat in HIGHPASS:
+        mono = highpass(mono, sr, HIGHPASS[cat])
     peak = np.max(np.abs(mono)) or 1.0
     thresh = 0.04 * peak
     start = int(np.argmax(np.abs(mono) > thresh))
     start = max(0, start - int(0.004 * sr))            # keep 4 ms of lead-in
     mono = mono[start:]
     mono = mono / (np.max(np.abs(mono)) or 1.0) * 0.95
-    fade = min(len(mono), int(0.25 * sr))
-    mono[-fade:] *= np.linspace(1.0, 0.0, fade)
-    return mono
+    return trim_tail(mono, sr)
 
 
 def main():
@@ -88,6 +122,7 @@ def main():
     ap.add_argument("--per", type=int, default=8, help="candidates per category")
     ap.add_argument("--only", default=",".join(CATEGORIES))
     ap.add_argument("--steps", type=int, default=8)
+    ap.add_argument("--start", type=int, default=1, help="first file number (keep earlier picks)")
     args = ap.parse_args()
 
     from stable_audio_tools import get_pretrained_model
@@ -105,7 +140,7 @@ def main():
     for cat in args.only.split(","):
         seconds, prompts = CATEGORIES[cat]
         os.makedirs(os.path.join(OUT, cat), exist_ok=True)
-        for i in range(args.per):
+        for i in range(args.start - 1, args.start - 1 + args.per):
             prompt = prompts[i % len(prompts)]
             seed = 1000 + i * 97 + hash(cat) % 1000
             t1 = time.time()
@@ -113,11 +148,11 @@ def main():
                 out = generate_diffusion_cond_inpaint(
                     model, steps=args.steps, cfg_scale=1.0,
                     conditioning=[{"prompt": prompt, "seconds_total": seconds}],
-                    negative_conditioning=[{"prompt": NEG, "seconds_total": seconds}],
+                    negative_conditioning=[{"prompt": NEG + NEG_EXTRA.get(cat, ""), "seconds_total": seconds}],
                     sample_size=sample_size, sampler_type="pingpong", seed=seed, device=device,
                     sigma_max=1.0, apg_scale=1.0, duration_padding_sec=6.0)
             audio = out[0].float().clamp(-1, 1).cpu().numpy()
-            mono = clean(audio, sr, seconds)
+            mono = clean(audio, sr, seconds, cat)
             path = os.path.join(OUT, cat, f"{cat}_{i + 1:02d}.wav")
             sf.write(path, mono, sr, subtype="PCM_16")
             with open(path + ".txt", "w", encoding="utf-8") as f:
@@ -129,6 +164,12 @@ def main():
 
 
 def write_index():
+    # Pre-tick what is already installed (tools/sfx_picks.txt), so "Copy picks" gives the full list.
+    picked = set()
+    try:
+        picked = {l.strip() for l in open(os.path.join(REPO, "tools", "sfx_picks.txt"), encoding="utf-8") if l.strip()}
+    except OSError:
+        pass
     rows = []
     for cat in CATEGORIES:
         d = os.path.join(OUT, cat)
@@ -142,8 +183,8 @@ def write_index():
                 prompt = open(os.path.join(d, f + ".txt"), encoding="utf-8").readline().strip()
             except OSError:
                 pass
-            cards.append(f'<label class="card"><input type="checkbox" value="{cat}/{f}"> <b>{f[:-4]}</b>'
-                         f'<audio controls preload="none" src="{cat}/{f}"></audio><small>{html.escape(prompt)}</small></label>')
+            cards.append(f'<label class="card"><input type="checkbox" value="{cat}/{f}"{" checked" if f"{cat}/{f}" in picked else ""}> <b>{f[:-4]}</b>'
+                         f'<audio controls preload="metadata" src="{cat}/{f}"></audio><small>{html.escape(prompt)}</small></label>')
         rows.append(f'<h2>{cat} <button onclick="chain(\'{cat}\')">play 3 in a row (chain test)</button></h2>'
                     f'<div class="grid">{"".join(cards)}</div>')
     page = """<!doctype html><meta charset="utf-8"><title>Explosion SFX picks</title>

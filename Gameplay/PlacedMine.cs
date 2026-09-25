@@ -237,6 +237,7 @@ namespace HumanHostExplosives
             b.FlashScale = Plugin.NailbombFlashScale.Value;
             b.ParticulateScale = Plugin.NailbombParticulateScale.Value;
             b.Metallic = true;
+            b.Sound = "ap";
             Blast.Detonate(b, origin, Owner);
             Plugin.Log.LogInfo($"[APCharge] fired toward {dir}, fragmentHits={hits}.");
         }
