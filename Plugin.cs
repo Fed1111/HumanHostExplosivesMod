@@ -181,6 +181,7 @@ namespace HumanHostExplosives
 
         internal static ConfigEntry<bool> EnableLootSpawning;
         internal static ConfigEntry<float> LootChance;
+        internal static ConfigEntry<bool> ExplosionResourcesOnGround;
         internal static ConfigEntry<KeyCode> MinePickupKey;
         internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
@@ -457,6 +458,10 @@ namespace HumanHostExplosives
                 "Let explosives spawn in world containers. This adds our item to an EXISTING loot tag rather than " +
                 "creating a new spawn rate, so it inherits that tag's rarity and only appears in containers that " +
                 "already roll it - and it automatically respects your loot-rate setting and looting skill.");
+            ExplosionResourcesOnGround = Config.Bind(
+                "Explosives", "ResourcesOnGround", true,
+                "Resources knocked out of blocks by an explosion drop on the ground where the block was, instead of going " +
+                "straight into your inventory. Melee is unaffected.");
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +

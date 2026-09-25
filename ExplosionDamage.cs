@@ -250,6 +250,9 @@ namespace HumanHostExplosives
                 _zoneSorted = true;
             }
             int budget = 6;
+            ExplosionDrops.Scope++;
+            try
+            {
             while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null)
             {
                 ZoneJob job = ZoneQueue[0];
@@ -279,6 +282,11 @@ namespace HumanHostExplosives
                     Plugin.Log.LogWarning($"[Explosion] zone hit on '{job.Bi.name}' threw: {ex.Message}");
                 }
             }
+            }
+            finally
+            {
+                ExplosionDrops.Scope--;
+            }
         }
 
         private static readonly Dictionary<string, int> _demoReasons = new Dictionary<string, int>();
@@ -292,7 +300,16 @@ namespace HumanHostExplosives
         {
             _demoReasons.Clear();
             _demoHouseBlocks = _demoBlocks = _demoShardsBroken = _demoShardsRefused = _demoWalls = _demoZoneCells = 0;
-            int result = ApplyToBuildablesCore(center, radius, damage, wholeBlocks);
+            int result;
+            ExplosionDrops.Scope++;   // resources knocked loose land on the ground
+            try
+            {
+                result = ApplyToBuildablesCore(center, radius, damage, wholeBlocks);
+            }
+            finally
+            {
+                ExplosionDrops.Scope--;
+            }
             if (wholeBlocks)
             {
                 Plugin.Log.LogInfo($"[Demolition] {_demoBlocks} block(s) ({_demoHouseBlocks} of them world-building): {_demoShardsBroken} shard(s) broken, " +
@@ -697,6 +714,7 @@ namespace HumanHostExplosives
                 }
                 if (why == "unknown")
                 {
+                    ExplosionDrops.Scope++;
                     try
                     {
                         t.Process_Smashed_Shard(piece, fromPlayer: false, entityBulletHit: true);
@@ -704,6 +722,10 @@ namespace HumanHostExplosives
                     catch (System.Exception ex)
                     {
                         Plugin.Log.LogWarning("[Demolition] retry threw: " + ex.Message);
+                    }
+                    finally
+                    {
+                        ExplosionDrops.Scope--;
                     }
                     if (piece == null || piece.Smashed || piece.Is_Fallen)
                     {
