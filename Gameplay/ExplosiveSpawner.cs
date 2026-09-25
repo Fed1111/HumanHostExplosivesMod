@@ -16,6 +16,28 @@ namespace HumanHostExplosives
         /// </summary>
         private const float NearbyToolRadius = 1.2f;
 
+        /// <summary>
+        /// The pin and spoon, the instant the throw is released - before the throw animation, which
+        /// delays the grenade itself. Only the two grenades have a spoon.
+        /// </summary>
+        internal static void PlayReleaseSound(ExplosiveDef def, C_Controller_Base thrower)
+        {
+            if (def == null || (def.Kind != ExplosiveKind.Grenade && def.Kind != ExplosiveKind.ContactGrenade))
+            {
+                return;
+            }
+            try
+            {
+                Transform hand = thrower != null ? thrower._EquipBones.rightHand : null;
+                Vector3 pos = hand != null ? hand.position : thrower != null ? thrower.transform.position : Vector3.zero;
+                SmallSounds.PlayRattle(pos, Plugin.GrenadeRattleVolume.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogError("[Explosive] release sound threw: " + ex);
+            }
+        }
+
         internal static GameObject Throw(ExplosiveDef def, Transform camTrans, C_Controller_Base thrower, float throwSpeed = 8f, float upwardArc = 2f)
         {
             if (def == null || camTrans == null)
@@ -87,19 +109,6 @@ namespace HumanHostExplosives
                     var molotov = go.AddComponent<MolotovProjectile>();
                     molotov.Thrower = thrower;
                     break;
-            }
-
-            // The spoon flying off - only the two grenades have one.
-            if (def.Kind == ExplosiveKind.Grenade || def.Kind == ExplosiveKind.ContactGrenade)
-            {
-                try
-                {
-                    SmallSounds.PlayRattle(go.transform.position, Plugin.GrenadeRattleVolume.Value);
-                }
-                catch (System.Exception ex)
-                {
-                    Plugin.Log.LogError("[Explosive] rattle sound threw: " + ex);
-                }
             }
 
             Plugin.Log.LogInfo($"[Explosive] '{def.Tag}' thrown.");

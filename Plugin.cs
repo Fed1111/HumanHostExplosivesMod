@@ -1498,6 +1498,7 @@ namespace HumanHostExplosives
                 Toast(MinePlacer.TryPlace(def, Player_Input.ins) ? $"placed: {kind}" : $"{kind}: nowhere to place it");
                 return;
             }
+            ExplosiveSpawner.PlayReleaseSound(def, Player_Input.ins);
             ExplosiveSpawner.Throw(def, camTrans, Player_Input.ins, MaxThrowSpeed.Value * 0.6f);
             Toast($"thrown: {kind}");
         }
@@ -1627,6 +1628,7 @@ namespace HumanHostExplosives
             {
                 return;
             }
+            ExplosiveSpawner.PlayReleaseSound(def, Player_Input.ins);
 
             // Same animation timing as the normal equip-and-click throw (ExplosiveUseHook) - play
             // the clip and hold the projectile back until the hand actually opens, rather than

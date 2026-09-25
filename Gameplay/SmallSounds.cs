@@ -28,7 +28,8 @@ namespace HumanHostExplosives
 
         internal static void PlayShatter(Vector3 pos, float volume)
         {
-            if (!SoundBank.Play("molotov", pos, volume * 1.6f, 40f))
+            // 90 m: the falloff is squared, so a 40 m range left a bottle smashed 15 m away at under half.
+            if (!SoundBank.Play("molotov", pos, volume * 1.6f, 90f))
             {
                 PlayAt(_shatter ?? (_shatter = BuildShatter()), pos, volume, 40f);
             }

@@ -153,6 +153,7 @@ namespace HumanHostExplosives
             {
                 return;
             }
+            ExplosiveSpawner.PlayReleaseSound(def, Player_Input.ins);
 
             // Play the throw animation and hold the projectile back until the hand actually opens.
             // Play() returns 0 when there is no animation (bundle missing, feature disabled, wrong
