@@ -229,7 +229,14 @@ namespace HumanHostExplosives
                 int was = Unreachable;
                 if (before != null && !before.TryGetValue(kv.Key, out was))
                 {
-                    continue;   // wasn't supported before the blast either (decoration etc.) - not ours to judge
+                    // Already unsupported when this demolition started - left floating by an EARLIER one
+                    // (its baseline was taken after that). Still floating now: bring it down too.
+                    if (!now.ContainsKey(kv.Key))
+                    {
+                        loose.Add(kv);
+                        cutOff++;
+                    }
+                    continue;
                 }
                 if (!now.TryGetValue(kv.Key, out int s))
                 {
@@ -244,10 +251,7 @@ namespace HumanHostExplosives
             }
             if (loose.Count == 0)
             {
-                if (round == 1)
-                {
-                    Plugin.Log.LogInfo($"[Support] '{bi.name}': all {standing.Count} standing section(s) still supported.");
-                }
+                Plugin.Log.LogInfo($"[Support] '{bi.name}' round {round}: all {standing.Count} standing section(s) still supported.");
                 return 0;
             }
 
