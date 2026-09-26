@@ -270,6 +270,7 @@ namespace HumanHostExplosives
                     {
                         continue;
                     }
+                    _zoneLastRun = Time.time;
                     try
                     {
                         RunZoneJob(smash, job);
@@ -288,7 +289,18 @@ namespace HumanHostExplosives
             {
                 LogDemolitionQueueDone();
             }
+            else if (Time.time - _zoneLastRun > 5f && Time.time > _zoneStallLogged + 10f)
+            {
+                // Diagnostic: the queue has work but nothing has run for 5 s - say what it's waiting on.
+                _zoneStallLogged = Time.time;
+                ZoneJob head = ZoneQueue[0];
+                bool furni = Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>();
+                Plugin.Log.LogInfo($"[Demolition] queue stalled: {ZoneQueue.Count} job(s), cutting slot {(smash._corSlice == null ? "free" : "busy")}, " +
+                                   $"furniture spawning {furni}, next job stage {head.Stage} tries {head.Tries} on '{(head.Bi != null ? head.Bi.name : "?")}'.");
+            }
         }
+
+        private static float _zoneLastRun, _zoneStallLogged;
 
         private static readonly Collider[] SweepBuffer = new Collider[64];
 
@@ -393,9 +405,14 @@ namespace HumanHostExplosives
         /// </summary>
         private static void RunDemolishStage(Smash_Fallen_Manager smash, ZoneJob job)
         {
-            if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+            // Only the vanilla shard path (support check off) needs to wait out furniture spawning - the fast
+            // finish calls the cut directly. Near a big POI that spawning runs almost constantly, and waiting
+            // on it stalled the whole queue.
+            if (!Plugin.BuildingSupportCheck.Value && Time.time < job.Expire - 50f &&
+                Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
             {
-                Requeue(job);   // the shard path waits for furniture spawning
+                _zoneYield = true;
+                ZoneQueue.Insert(0, job);
                 return;
             }
             var tops = Traverse.Create(smash).Field("_BIsibling2SilceTop").GetValue<Dictionary<Transform, Dictionary<int, Transform>>>();
@@ -806,6 +823,7 @@ namespace HumanHostExplosives
         private static int ApplyToBuildablesCore(Vector3 center, float radius, float damage, bool wholeBlocks)
         {
             _zoneBatch++;
+            _zoneLastRun = Time.time;
             _zoneSorted = false;
             Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
             Global_Infos globalInfos = Global_Infos.ins;
