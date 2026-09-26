@@ -450,6 +450,11 @@ namespace HumanHostExplosives
                 // debris, cleanup, knocks down furniture resting on it). Left to the second stage, shards
                 // touching a still-standing neighbour cell count as "edge" pieces and stay put - so the cell
                 // the charge sits on, whose neighbours are all intact at that moment, was the LAST to go.
+                if (Plugin.BuildingSupportCheck.Value && FinishCellFast(smash, job, StageShards))
+                {
+                    _st2Done++;
+                    return;
+                }
                 foreach (Collider c in StageShards)
                 {
                     if (c != best)
@@ -502,6 +507,77 @@ namespace HumanHostExplosives
             catch (System.Exception ex)
             {
                 Plugin.Log.LogWarning("[Demolition] dropping a wall piece threw: " + (ex.InnerException ?? ex).Message);
+            }
+        }
+
+        private static System.Reflection.MethodInfo _sliceZone, _realZonePos, _hpMod;
+
+        /// <summary>
+        /// The game's second stage for a cut cell (ZoneSmash_Shard_MinusHP's "cell at 0 HP" branch, Build_System
+        /// :19699-19711) minus its LOCAL fall check. That check slices whole columns above, one section at a time,
+        /// holding the game's single cutting slot (_corSlice) the whole while - every other queued section waited
+        /// behind it: 1-2 minutes per blast for a handful of sections. With the building support check on, the
+        /// whole-building check does the structural collapse instead, once the cutting is done.
+        /// Drops every shard of the cell, then Slice_Zone(afterPreSmashHit, !hitSliceShard, checkFallen:false):
+        /// hides the cell, records it as smashed in the save, pays its resources, plays its sound.
+        /// Returns false (caller falls back to the vanilla path) if anything it needs isn't there.
+        /// </summary>
+        private static bool FinishCellFast(Smash_Fallen_Manager smash, ZoneJob job, List<Collider> shards)
+        {
+            bool dropped = false;
+            try
+            {
+                if (_sliceZone == null)
+                {
+                    _sliceZone = AccessTools.Method(typeof(Smash_Fallen_Manager), "Slice_Zone");
+                    _realZonePos = AccessTools.Method(typeof(Smash_Fallen_Manager), "Get_RealZonePosRound");
+                    _hpMod = AccessTools.Method(typeof(Smash_Fallen_Manager), "Get_HP_Mod");
+                }
+                if (_sliceZone == null || _realZonePos == null || _hpMod == null || job.ChildIndex >= job.Bi.transform.childCount)
+                {
+                    return false;
+                }
+                Transform cell = job.Bi.transform.GetChild(job.ChildIndex);
+                if (!cell.TryGetComponent(out MeshCollider cellMc) || !cell.TryGetComponent(out MeshFilter cellMf))
+                {
+                    return false;
+                }
+                object[] posArgs = { cellMc, null, null };
+                if (!(bool)_realZonePos.Invoke(smash, posArgs))
+                {
+                    return false;
+                }
+                Vector3Int posRound = (Vector3Int)posArgs[1];
+                Vector3 pos = (Vector3)posArgs[2];
+                Traverse tr = Traverse.Create(smash);
+                Vector3 origin = tr.Field("_buildInit").Field("world_Origin_Neutralized").GetValue<Vector3>();
+                float sliceSize = tr.Field("_SliceSize").GetValue<float>();
+                float cellHp = job.Bi._soundObj.SoundMat._HP_ZoneSmashBI * (float)_hpMod.Invoke(smash, new object[] { job.Bi, cellMc });
+                // The pre-cut left this cell's HP entry at 0; the second stage clears it (as vanilla does).
+                object hps = tr.Field("_zoneData").Field("_zoneHPs").GetValue();
+                (hps as System.Collections.IDictionary)?.Remove(posRound);
+
+                dropped = true;
+                foreach (Collider c in shards)
+                {
+                    DropShard(smash, (MeshCollider)c, job.Bi, !job.Collapse);
+                    _st2Dropped++;
+                }
+                _sliceZone.Invoke(smash, new object[]
+                {
+                    job.Bi, cellMf, cellMc, pos + origin, posRound, job.ChildIndex,
+                    false,            // isPreSmash
+                    true,             // afterPreSmashHit
+                    false,            // hitSliceShard: the cell's own break (records it, pays loot)
+                    false,            // checkFallen: the building support check does this, once, for the whole building
+                    sliceSize, null, !job.Collapse, cellHp,
+                });
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] fast cell finish failed" + (dropped ? " after dropping its pieces: " : ", using the game's own: ") + (ex.InnerException ?? ex).Message);
+                return dropped;   // pieces already gone: nothing left for the vanilla path to hit
             }
         }
 
