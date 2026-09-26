@@ -488,11 +488,12 @@ namespace HumanHostExplosives
                 "After a demolition charge, check the WHOLE world building it hit: any part no longer connected to the ground " +
                 "through standing walls/floors comes down, lowest first. The game's own check only looks at the few sections around " +
                 "each break, which can leave most of a building floating over a missing ground floor.");
-            SupportSpan = Config.Bind(
-                "RemoteCharge", "SupportSpan", 1,
+            SupportSpan = BindMigrated(
+                "RemoteCharge", "SupportSpan", 0,
                 RangeInt("Building support check: how much further (in 4 m sections) a part of a world building may end up from the nearest " +
                 "wall/column still standing under it than it was before the blast, before it comes down. 0 = anything that lost the " +
-                "support directly under it falls; higher = floors and roofs bridge wider gaps.", 0, 5));
+                "support directly under it falls; higher = floors and roofs bridge wider gaps (1 left 4 m rings of floor hanging around a blown-out area).", 0, 5),
+                1);
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
@@ -847,7 +848,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 6;
+        private const int CurrentConfigVersion = 7;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
