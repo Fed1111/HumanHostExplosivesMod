@@ -853,7 +853,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 7;
+        private const int CurrentConfigVersion = 8;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
@@ -936,22 +936,22 @@ namespace HumanHostExplosives
 
             MolotovRadius = Config.Bind("Molotov", "MolotovRadius", 3f,
                 Range("Radius (m) of the burning pool a Molotov leaves.", 1f, 8f));
-            MolotovDuration = Config.Bind("Molotov", "MolotovDuration", 10f,
-                Range("How long (s) the pool burns, including a 1.5 s die-down at the end.", 2f, 30f));
+            MolotovDuration = BindMigrated("Molotov", "MolotovDuration", 20f,
+                Range("How long (s) the pool burns, including a 1.5 s die-down at the end.", 2f, 60f), 10f);
             MolotovNoiseRadius = Config.Bind("Molotov", "MolotovNoiseRadius", 25f,
                 Range("How far (m) zombies hear the bottle smash. The fire itself makes no further noise - zombies that " +
                 "come to look walk into it.", 0f, 100f));
 
-            FireGroundDamage = Config.Bind("Fire", "FireGroundDamage", 20f,
-                Range("Damage per tick to anyone standing in a burning pool. A zombie also catches fire (see BurnDamage).", 0f, 200f));
+            FireGroundDamage = BindMigrated("Fire", "FireGroundDamage", 40f,
+                Range("Damage per tick to anyone standing in a burning pool. A zombie also catches fire (see BurnDamage).", 0f, 200f), 20f);
             FireTickSeconds = Config.Bind("Fire", "FireTickSeconds", 1f,
                 Range("Seconds between fire damage ticks, for pools and burning characters. Each tick makes a zombie " +
                 "stagger (the game's own trap reaction), so going much below 1 can stun-lock them.", 0.25f, 2f));
-            BurnSeconds = Config.Bind("Fire", "BurnSeconds", 5f,
+            BurnSeconds = BindMigrated("Fire", "BurnSeconds", 10f,
                 Range("How long (s) a zombie keeps burning after leaving the fire. Walking back in refreshes it; it never stacks. " +
-                "0 = nothing catches fire, pools still hurt.", 0f, 15f));
-            BurnDamage = Config.Bind("Fire", "BurnDamage", 12f,
-                Range("Damage per tick while a character is burning.", 0f, 100f));
+                "0 = nothing catches fire, pools still hurt.", 0f, 30f), 5f);
+            BurnDamage = BindMigrated("Fire", "BurnDamage", 24f,
+                Range("Damage per tick while a character is burning.", 0f, 100f), 12f);
             PlayerCanCatchFire = Config.Bind("Fire", "PlayerCanCatchFire", true,
                 "You can catch fire too, for PlayerBurnSeconds. Only while Explosives.AllowSelfDamage is on.");
             PlayerBurnSeconds = Config.Bind("Fire", "PlayerBurnSeconds", 3f,

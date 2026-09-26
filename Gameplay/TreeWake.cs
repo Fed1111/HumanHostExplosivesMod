@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HarmonyLib;
 using UnityEngine;
 
 namespace HumanHostExplosives
@@ -40,7 +41,7 @@ namespace HumanHostExplosives
             }
             // Woken trees load in as objects a moment later - the sweep this frame misses them (including
             // the tree the charge is stuck to). Come back for them.
-            TreePasses.Add((center, radius, Time.time + 0.35f, 0));
+            TreePasses.Add((center, radius, Time.time + 0.2f, 0));
         }
 
         private static readonly List<(Vector3 Center, float Radius, float At, int Pass)> TreePasses = new List<(Vector3, float, float, int)>();
@@ -63,6 +64,16 @@ namespace HumanHostExplosives
                 {
                     continue;
                 }
+                // The game gives physics only to the first 10 pieces of each smash batch
+                // (Delay_AddRigid_To_Smashed_Shards: ProcessedCount < 11 - the rest jump away and despawn), and a
+                // tree only falls if it gets that treatment. Wait for any running batch (the blast's own) to end,
+                // then smash at most 8 trees per batch.
+                if (Traverse.Create(topOnHit).Field("cor").GetValue() != null)
+                {
+                    TreePasses.Add((p.Center, p.Radius, Time.time + 0.1f, p.Pass));
+                    continue;
+                }
+                bool more = false;
                 var done = new HashSet<Build_Info>();
                 var hitPieces = new HashSet<Battle_Info>();
                 ExplosionDrops.Scope++;
@@ -71,9 +82,14 @@ namespace HumanHostExplosives
                     foreach (Collider c in Physics.OverlapSphere(p.Center, p.Radius, StructureMask(), QueryTriggerInteraction.Ignore))
                     {
                         Build_Info bi = c != null ? c.GetComponentInParent<Build_Info>() : null;
-                        if (bi == null || bi._Type != Build_Info.Type.TerrainTreeBI || !done.Add(bi))
+                        if (bi == null || bi._Type != Build_Info.Type.TerrainTreeBI || !done.Add(bi) || !HasStandingPiece(bi))
                         {
                             continue;
+                        }
+                        if (broken >= 8)
+                        {
+                            more = true;
+                            break;
                         }
                         broken += SmashWholeBlock(bi, topOnHit, hitPieces);
                     }
@@ -91,11 +107,27 @@ namespace HumanHostExplosives
                 {
                     Plugin.Log.LogInfo($"[Demolition] tree pass {p.Pass + 1}: {broken} tree(s) that loaded after the blast brought down.");
                 }
-                if (p.Pass + 1 < TreePassDelays.Length)
+                if (more)
+                {
+                    TreePasses.Add((p.Center, p.Radius, Time.time + 0.1f, p.Pass));   // the rest, next batch
+                }
+                else if (p.Pass + 1 < TreePassDelays.Length)
                 {
                     TreePasses.Add((p.Center, p.Radius, Time.time + TreePassDelays[p.Pass + 1] - TreePassDelays[p.Pass], p.Pass + 1));
                 }
             }
+        }
+
+        private static bool HasStandingPiece(Build_Info bi)
+        {
+            foreach (Battle_Info b in bi.Spawned_BaIs)
+            {
+                if (b != null && !b.Smashed && !b.Is_Fallen)
+                {
+                    return true;
+                }
+            }
+            return bi.Spawned_BaIs.Count == 0;   // not split into pieces yet: SmashWholeBlock spawns them
         }
 
         private static bool WakeAt(TerrainTreeManager trees, Global_Infos g, Vector3 p)

@@ -937,6 +937,10 @@ namespace HumanHostExplosives
                 {
                     continue;   // a collapse's own rubble: demolishing it again is pointless and races its placement
                 }
+                if (wholeBlocks && owner != null && owner._Type == Build_Info.Type.TerrainTreeBI)
+                {
+                    continue;   // trees get their own smash a moment later (TickTreePasses) - see TreeWake
+                }
                 if (wholeBlocks && directPiece != null && directPiece.FatherBI != null &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.ZoneSmashBI &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.SysHouseBigWall)
