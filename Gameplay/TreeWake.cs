@@ -130,27 +130,58 @@ namespace HumanHostExplosives
             return bi.Spawned_BaIs.Count == 0;   // not split into pieces yet: SmashWholeBlock spawns them
         }
 
+        private static readonly RaycastHit[] WakeHits = new RaycastHit[16];
+
         private static bool WakeAt(TerrainTreeManager trees, Global_Infos g, Vector3 p)
         {
-            if (!Physics.Raycast(p + Vector3.up * 3f, Vector3.down, out RaycastHit hit, 12f, g.Mask_Scene.value, QueryTriggerInteraction.Ignore))
+            // All hits, nearest first, and take the first that is actual terrain. A single raycast stopped on the
+            // charge itself (its shootable collider is on the Scene layer) or on a tree/prop above the ground, and
+            // handed the game that instead of the terrain - so the tree the charge was stuck to never woke.
+            int n = Physics.RaycastNonAlloc(p + Vector3.up * 3f, Vector3.down, WakeHits, 15f, g.Mask_Scene.value, QueryTriggerInteraction.Ignore);
+            System.Array.Sort(WakeHits, 0, n, HitDistance.Instance);
+            for (int i = 0; i < n; i++)
             {
-                return false;
+                Collider c = WakeHits[i].collider;
+                if (c == null)
+                {
+                    continue;
+                }
+                // Same terrain-object lookup the game's own hits use (dug terrain is nested 4 levels down).
+                GameObject terrainObj = c.gameObject;
+                if (c.CompareTag("DiggerMesh"))
+                {
+                    Transform t = c.transform;
+                    for (int k = 0; k < 4 && t != null; k++)
+                    {
+                        t = t.parent;
+                    }
+                    if (t == null)
+                    {
+                        continue;
+                    }
+                    terrainObj = t.gameObject;
+                }
+                if (terrainObj.GetComponent<TerrainTreeSpawner>() == null)
+                {
+                    continue;   // not terrain: the charge, a tree, a prop - keep looking down
+                }
+                try
+                {
+                    return trees.Spawn_Terrain_Tree_Around_HitPoint(terrainObj, WakeHits[i].point);
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning("[Demolition] waking trees threw: " + ex.Message);
+                    return false;
+                }
             }
-            Collider c = hit.collider;
-            // Same terrain-object lookup the game's own hits use (dug terrain is nested 4 levels down).
-            GameObject terrainObj = c.CompareTag("DiggerMesh") && c.transform.parent != null && c.transform.parent.parent != null &&
-                                    c.transform.parent.parent.parent != null && c.transform.parent.parent.parent.parent != null
-                ? c.transform.parent.parent.parent.parent.gameObject
-                : c.gameObject;
-            try
-            {
-                return trees.Spawn_Terrain_Tree_Around_HitPoint(terrainObj, hit.point);
-            }
-            catch (System.Exception ex)
-            {
-                Plugin.Log.LogWarning("[Demolition] waking trees threw: " + ex.Message);
-                return false;
-            }
+            return false;
         }
-    }
+
+        private sealed class HitDistance : IComparer<RaycastHit>
+        {
+            internal static readonly HitDistance Instance = new HitDistance();
+
+            public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance);
+        }    }
 }
