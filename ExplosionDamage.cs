@@ -581,6 +581,9 @@ namespace HumanHostExplosives
                     DropShard(smash, (MeshCollider)c, job.Bi, !job.Collapse);
                     _st2Dropped++;
                 }
+                // Record it as fully gone BEFORE the cut runs (which only adds a record if none exists) - left
+                // to the game it stays "pieces left" and gets pointlessly re-cut on every load (ZoneSaveFix).
+                ZoneSaveFix.MarkGone(smash, job.Bi, posRound, job.ChildIndex, sliceSize);
                 _sliceZone.Invoke(smash, new object[]
                 {
                     job.Bi, cellMf, cellMc, pos + origin, posRound, job.ChildIndex,
