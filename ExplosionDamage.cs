@@ -358,6 +358,15 @@ namespace HumanHostExplosives
             }
 
             int childIndex = col.transform.GetSiblingIndex();
+            if (job.Demolish && HasCutTop(smash, job.Bi, childIndex))
+            {
+                // Already pre-cut (its collider can still read as enabled): cutting again makes the game
+                // re-register the cell and throw ("same key has already been added"). Drop its pieces instead.
+                job.Stage = 2;
+                job.ChildIndex = childIndex;
+                RunDemolishStage(smash, job);
+                return;
+            }
             smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: !job.Collapse);
             if (job.Demolish)
             {
@@ -494,6 +503,12 @@ namespace HumanHostExplosives
             {
                 Plugin.Log.LogWarning("[Demolition] dropping a wall piece threw: " + (ex.InnerException ?? ex).Message);
             }
+        }
+
+        private static bool HasCutTop(Smash_Fallen_Manager smash, Build_Info bi, int childIndex)
+        {
+            var tops = Traverse.Create(smash).Field("_BIsibling2SilceTop").GetValue<Dictionary<Transform, Dictionary<int, Transform>>>();
+            return tops != null && tops.TryGetValue(bi.transform, out var cells) && cells.TryGetValue(childIndex, out Transform t) && t != null;
         }
 
         private static void Requeue(ZoneJob job)
