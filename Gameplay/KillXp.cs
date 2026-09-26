@@ -17,6 +17,38 @@ namespace HumanHostExplosives
         private static readonly Dictionary<C_Controller_Base, float> Watching = new Dictionary<C_Controller_Base, float>();
         private static readonly List<C_Controller_Base> Done = new List<C_Controller_Base>();
 
+        private static Tool_Interact_Mgr _toolMgr;
+        private static float _lastMarker;
+
+        /// <summary>
+        /// The skull + sound a gun kill shows (Tool_Interact_Mgr.Show_Special_Icon with the headshot icon,
+        /// Hand_Tools:2160) - explosive and fire kills never went through the gun code, so they showed nothing.
+        /// At most once every quarter second: one blast killing five doesn't stack five sounds.
+        /// </summary>
+        private static void ShowKillMarker()
+        {
+            if (Time.time - _lastMarker < 0.25f)
+            {
+                return;
+            }
+            _lastMarker = Time.time;
+            try
+            {
+                if (_toolMgr == null)
+                {
+                    _toolMgr = Object.FindObjectOfType<Tool_Interact_Mgr>();
+                }
+                if (_toolMgr != null && _toolMgr._HeadshotIcon != null)
+                {
+                    _toolMgr.Show_Special_Icon(_toolMgr._HeadshotIcon, _toolMgr._HeadshotIconSFX);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[XP] kill marker failed: " + ex.Message);
+            }
+        }
+
         /// <summary>Call BEFORE damaging a character; it's credited if this damage kills it.</summary>
         internal static void Watch(C_Controller_Base victim)
         {
@@ -50,6 +82,7 @@ namespace HumanHostExplosives
                     {
                         player._charSkills.GainCharacterExp((int)c.char_Status._MaxHP);
                         Plugin.Log.LogInfo($"[XP] +{(int)c.char_Status._MaxHP} (x{G_Save._config._ExpFactor:F2} game XP rate) for an explosive/fire kill of {c.name}.");
+                        ShowKillMarker();
                     }
                     else
                     {
