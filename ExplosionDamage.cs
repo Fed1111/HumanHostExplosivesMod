@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace HumanHostExplosives
 {
-    internal static class ExplosionDamage
+    internal static partial class ExplosionDamage
     {
         /// <summary>
         /// Applies falloff damage to every living creature within radius of center, using the
@@ -228,6 +228,7 @@ namespace HumanHostExplosives
             internal int Stage;      // demolition follow-ups on cell ChildIndex: 2 = break the cut cell, 3 = clear its leftovers
             internal int ChildIndex;
             internal int Tries;
+            internal bool Collapse;   // unsupported section brought down by the support check: no loot (vanilla collapses pay none)
         }
 
         private static readonly List<ZoneJob> ZoneQueue = new List<ZoneJob>();
@@ -357,7 +358,7 @@ namespace HumanHostExplosives
             }
 
             int childIndex = col.transform.GetSiblingIndex();
-            smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: true);
+            smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: !job.Collapse);
             if (job.Demolish)
             {
                 // A zone cell breaks in two stages: the hit above only PRE-cuts it into hidden shards (the
@@ -367,7 +368,7 @@ namespace HumanHostExplosives
                 ZoneQueue.Insert(0, new ZoneJob
                 {
                     Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order - 0.0001f,
-                    Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex,
+                    Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex, Collapse = job.Collapse,
                 });
                 _zoneSorted = false;
             }
@@ -444,14 +445,14 @@ namespace HumanHostExplosives
                 {
                     if (c != best)
                     {
-                        DropShard(smash, (MeshCollider)c, job.Bi);
+                        DropShard(smash, (MeshCollider)c, job.Bi, !job.Collapse);
                         _st2Dropped++;
                     }
                 }
                 // Then the second stage on the last one: shows/fractures it, pays the cell's resources, and
                 // with the cell now empty its own tidy-up marks it fully gone in the save (hasShardsLeft 0)
                 // and runs the structure's fall check.
-                smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: true);
+                smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: !job.Collapse);
                 _st2Done++;
             }
         }
@@ -471,7 +472,7 @@ namespace HumanHostExplosives
 
         private static System.Reflection.MethodInfo _fallShard;
 
-        private static void DropShard(Smash_Fallen_Manager smash, MeshCollider mc, Build_Info zoneBI)
+        private static void DropShard(Smash_Fallen_Manager smash, MeshCollider mc, Build_Info zoneBI, bool fromPlayer)
         {
             try
             {
@@ -486,7 +487,7 @@ namespace HumanHostExplosives
                 }
                 Slice_Shard_Connect connect = mc.gameObject.GetComponent<Slice_Shard_Connect>() ?? mc.gameObject.AddComponent<Slice_Shard_Connect>();
                 connect._MC = mc;
-                _fallShard.Invoke(smash, new object[] { connect, zoneBI, true });
+                _fallShard.Invoke(smash, new object[] { connect, zoneBI, fromPlayer });
                 UnityEngine.Object.Destroy(connect);
             }
             catch (System.Exception ex)
@@ -889,6 +890,10 @@ namespace HumanHostExplosives
                         Expire = Time.time + 40f,
                         Demolish = wholeBlocks,
                     });
+                    if (wholeBlocks)
+                    {
+                        NoteDemolished(buildInfo);
+                    }
                     hits++;
                     if (wholeBlocks)
                     {
@@ -1090,6 +1095,7 @@ namespace HumanHostExplosives
             {
                 TickClearance();
             }
+            TickSupport();
             if (Deferred.Count == 0 || Time.time < _nextDeferredTry)
             {
                 return;
