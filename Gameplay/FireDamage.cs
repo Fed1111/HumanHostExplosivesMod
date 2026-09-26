@@ -46,6 +46,7 @@ namespace HumanHostExplosives
             }
 
             Vector3 pos = ctrl.capCol != null ? ctrl.capCol.bounds.center : ctrl.transform.position;
+            KillXp.Watch(ctrl);   // full weapon-kill XP if this kills it (see KillXp)
             smash.Minus_Char_HP(
                 ctrl,
                 null,
@@ -60,7 +61,7 @@ namespace HumanHostExplosives
                 bloodPos: pos,
                 bloodParticle: null,
                 useDefaultBloodPar: false,
-                getEXP: !ctrl._isPlayer);
+                getEXP: false);
 
             if (Logged.Add(ctrl))
             {

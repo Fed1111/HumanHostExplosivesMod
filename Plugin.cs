@@ -1795,14 +1795,16 @@ namespace HumanHostExplosives
         /// </summary>
         private void DrawChargeBar()
         {
-            if (_barBgStyle == null)
+            // Rebuild if Unity unloaded the textures (a GUIStyle doesn't keep them alive; loading a save can
+            // sweep them away and the bar then draws invisibly).
+            if (_barBgStyle == null || _barBgStyle.normal.background == null || _barFillStyle.normal.background == null)
             {
-                var bg = new Texture2D(1, 1);
+                var bg = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
                 bg.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.5f));
                 bg.Apply();
                 _barBgStyle = new GUIStyle { normal = { background = bg } };
 
-                var fill = new Texture2D(1, 1);
+                var fill = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
                 fill.SetPixel(0, 0, new Color(1f, 0.55f, 0.15f, 0.9f));
                 fill.Apply();
                 _barFillStyle = new GUIStyle { normal = { background = fill } };
@@ -1820,6 +1822,7 @@ namespace HumanHostExplosives
         private void Update()
         {
             ExplosiveUseHook.PollCharge();
+            KillXp.Tick();
             BurnManager.Tick();
             MineManager.Tick();
             MinePersistence.TickLoad();

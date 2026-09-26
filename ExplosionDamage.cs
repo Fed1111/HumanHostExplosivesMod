@@ -95,6 +95,7 @@ namespace HumanHostExplosives
                 float damage = maxDamage * falloff * exposure * (isSelf ? Plugin.SelfDamageMultiplier.Value : 1f);
                 BodyColliderScript bodyScript = ctrl._ragDollMgr ? ctrl._ragDollMgr._headBodyScript : null;
 
+                KillXp.Watch(ctrl);   // full weapon-kill XP if this kills it (see KillXp)
                 smashMgr.Minus_Char_HP(
                     ctrl,
                     bodyScript,
@@ -109,7 +110,7 @@ namespace HumanHostExplosives
                     bloodPos: targetPos,
                     bloodParticle: null,
                     useDefaultBloodPar: true,
-                    getEXP: true);
+                    getEXP: false);
 
                 hits++;
                 // MaxHP logged deliberately (not diagnostics-gated) - zombie/creature HP is data,
