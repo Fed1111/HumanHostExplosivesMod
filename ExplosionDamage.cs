@@ -511,14 +511,7 @@ namespace HumanHostExplosives
                 {
                     _fallShard = AccessTools.Method(typeof(Smash_Fallen_Manager), "Fall_Shard");
                 }
-                // A sliver (flat or near-zero in some axis) can't become the convex hull Fall_Shard gives it -
-                // PhysX logs "Less than four valid vertices". Too small to see fall anyway: just remove it.
-                if (ShardSanity.IsSliver(mc.sharedMesh))
-                {
-                    mc.enabled = false;
-                    UnityEngine.Object.Destroy(mc.gameObject);
-                    return;
-                }
+
                 // Pre-cut shards are hidden until the second stage shows them.
                 if (mc.TryGetComponent(out MeshRenderer mr))
                 {
