@@ -1152,7 +1152,36 @@ namespace HumanHostExplosives
                 }
             }
 
+            FlushFallChecks(topOnHit);
             return hits;
+        }
+
+        private static System.Reflection.MethodInfo _collectSmashed;
+
+        /// <summary>
+        /// What the game's own hit code does after Process_Smashed_Shard (TopOnHit:22166): if the smash left
+        /// anything needing a support check (NeedCheckTops), run it - Collect_Smashed_Groups is what actually
+        /// makes unsupported pieces, trees and blocks FALL. Smashing directly without it broke the one piece of
+        /// a tree and left the tree standing.
+        /// </summary>
+        internal static void FlushFallChecks(TopOnHit topOnHit)
+        {
+            if (topOnHit == null || topOnHit.NeedCheckTops.Count == 0)
+            {
+                return;
+            }
+            try
+            {
+                if (_collectSmashed == null)
+                {
+                    _collectSmashed = AccessTools.Method(typeof(TopOnHit), "Collect_Smashed_Groups");
+                }
+                _collectSmashed?.Invoke(topOnHit, null);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] fall check threw: " + (ex.InnerException ?? ex).Message);
+            }
         }
 
         private static IEnumerable<string> ReasonList()
@@ -1280,6 +1309,7 @@ namespace HumanHostExplosives
                     Deferred.RemoveAt(i);
                 }
             }
+            FlushFallChecks(t);
             if (Deferred.Count == 0 && _deferredDone > 0)
             {
                 Plugin.Log.LogInfo($"[Demolition] {_deferredDone} queued shard(s) broken on retry.");
