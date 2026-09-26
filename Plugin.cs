@@ -188,6 +188,7 @@ namespace HumanHostExplosives
         internal static ConfigEntry<bool> FastDemolitionCollapse;
         internal static ConfigEntry<bool> BuildingSupportCheck;
         internal static ConfigEntry<int> SupportSpan;
+        internal static ConfigEntry<KeyCode> SupportProbeKey;
         internal static ConfigEntry<KeyCode> MinePickupKey;
         internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
@@ -494,6 +495,10 @@ namespace HumanHostExplosives
                 "wall/column still standing under it than it was before the blast, before it comes down. 0 = anything that lost the " +
                 "support directly under it falls; higher = floors and roofs bridge wider gaps (1 left 4 m rings of floor hanging around a blown-out area).", 0, 5),
                 1);
+            SupportProbeKey = Config.Bind(
+                "RemoteCharge", "SupportProbeKey", KeyCode.Semicolon,
+                "Test key: look at part of a world building and press it to see what the building support check thinks of it " +
+                "(standing, on the ground or not, and what holds it up). None = off.");
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
@@ -1757,6 +1762,7 @@ namespace HumanHostExplosives
             }
             DrawMinePickupHint();
             RemoteCharges.DrawHud();
+            HumanHostExplosives.ExplosionDamage.DrawSupportProbe();
 
             if (string.IsNullOrEmpty(_toastText) || Time.unscaledTime > _toastUntil)
             {
@@ -1821,6 +1827,7 @@ namespace HumanHostExplosives
             HumanHostExplosives.ExplosionDamage.TickZoneQueue();
             MinePersistence.TickPickup();
             RemoteCharges.TickInput();
+            HumanHostExplosives.ExplosionDamage.TickSupportProbe();
 
             // Gated behind EnableDiagnostics on top of defaulting to KeyCode.None - this spawns
             // explosives for free, bypassing inventory entirely, so it must not be reachable by a

@@ -496,9 +496,7 @@ namespace HumanHostExplosives
                 }
                 // A sliver (flat or near-zero in some axis) can't become the convex hull Fall_Shard gives it -
                 // PhysX logs "Less than four valid vertices". Too small to see fall anyway: just remove it.
-                Mesh m = mc.sharedMesh;
-                Vector3 size = m != null ? m.bounds.size : Vector3.zero;
-                if (m == null || m.vertexCount < 8 || Mathf.Min(size.x, Mathf.Min(size.y, size.z)) < 0.02f)
+                if (ShardSanity.IsSliver(mc.sharedMesh))
                 {
                     mc.enabled = false;
                     UnityEngine.Object.Destroy(mc.gameObject);
