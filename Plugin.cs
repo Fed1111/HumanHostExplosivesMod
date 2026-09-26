@@ -853,7 +853,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 8;
+        private const int CurrentConfigVersion = 9;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
@@ -934,8 +934,8 @@ namespace HumanHostExplosives
                 Range("Seconds after leaving the hand before the impact fuse is live. Anything hit earlier is bounced off, " +
                 "so dropping one at your feet does not kill you. It still goes off after 8 s if it never hits anything.", 0f, 2f));
 
-            MolotovRadius = Config.Bind("Molotov", "MolotovRadius", 3f,
-                Range("Radius (m) of the burning pool a Molotov leaves.", 1f, 8f));
+            MolotovRadius = BindMigrated("Molotov", "MolotovRadius", 4.5f,
+                Range("Radius (m) of the burning pool a Molotov leaves.", 1f, 8f), 3f);
             MolotovDuration = BindMigrated("Molotov", "MolotovDuration", 20f,
                 Range("How long (s) the pool burns, including a 1.5 s die-down at the end.", 2f, 60f), 10f);
             MolotovNoiseRadius = Config.Bind("Molotov", "MolotovNoiseRadius", 25f,
