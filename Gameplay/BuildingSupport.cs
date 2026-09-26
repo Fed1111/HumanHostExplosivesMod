@@ -310,20 +310,36 @@ namespace HumanHostExplosives
             int hits = Physics.RaycastNonAlloc(from, Vector3.down, GroundHits, 1.25f, ~0, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < hits; i++)
             {
-                Collider c = GroundHits[i].collider;
-                if (c == null || c.attachedRigidbody != null)
+                if (IsGround(GroundHits[i].collider))
                 {
-                    continue;   // falling debris, dropped items, characters
+                    return true;
                 }
-                Build_Info other = c.GetComponentInParent<Build_Info>();
-                if (other == self || c.GetComponentInParent<PlacedMine>() != null ||
-                    (other != null && other._ItemType == Build_Info.ItemType.GroundDebris))
-                {
-                    continue;   // rubble from the blast isn't a foundation
-                }
-                return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Real ground only: the terrain, dug terrain, or a big static piece of the world (rock, slab - 4 m+
+        /// across) that isn't part of any building. Props, furniture, POI clutter, rubble, other buildings'
+        /// pieces and anything with a rigidbody don't hold a building up - a few crates under a floor kept a
+        /// whole second storey floating.
+        /// </summary>
+        private static bool IsGround(Collider c)
+        {
+            if (c == null || c.attachedRigidbody != null)
+            {
+                return false;
+            }
+            if (c.GetType().Name == "TerrainCollider" || c.CompareTag("DiggerMesh"))
+            {
+                return true;
+            }
+            if (c.GetComponentInParent<Build_Info>() != null || c.GetComponentInParent<PlacedMine>() != null)
+            {
+                return false;
+            }
+            Vector3 size = c.bounds.size;
+            return size.x >= 4f && size.z >= 4f;
         }
     }
 }

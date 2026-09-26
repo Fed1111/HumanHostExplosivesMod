@@ -161,16 +161,11 @@ namespace HumanHostExplosives
             for (int i = 0; i < hits; i++)
             {
                 Collider c = GroundHits[i].collider;
-                if (c == null || c.attachedRigidbody != null)
+                if (!IsGround(c))
                 {
                     continue;
                 }
                 Build_Info other = c.GetComponentInParent<Build_Info>();
-                if (other == self || c.GetComponentInParent<PlacedMine>() != null ||
-                    (other != null && other._ItemType == Build_Info.ItemType.GroundDebris))
-                {
-                    continue;
-                }
                 what = other != null ? $"{c.name} of {other.name} ({other._Type}/{other._ItemType})" : $"{c.name} (layer {LayerMask.LayerToName(c.gameObject.layer)})";
                 return true;
             }
