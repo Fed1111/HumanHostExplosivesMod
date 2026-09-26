@@ -834,6 +834,10 @@ namespace HumanHostExplosives
             // anything destructible nearby, so the sweep uses the union of all three instead of
             // Mask_Build alone.
             int combinedMask = globalInfos.Mask_Build.value | globalInfos.Mask_Battle.value | globalInfos.Mask_Scene.value;
+            if (wholeBlocks && _verifyPass == 0)
+            {
+                WakeTrees(center, radius);   // terrain trees become breakable objects only when woken
+            }
             Collider[] hitColliders = Physics.OverlapSphere(center, radius, combinedMask, QueryTriggerInteraction.Ignore);
             if (wholeBlocks)
             {
