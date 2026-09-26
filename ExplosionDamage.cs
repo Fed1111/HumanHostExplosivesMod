@@ -1227,6 +1227,7 @@ namespace HumanHostExplosives
                 TickClearance();
             }
             TickSupport();
+            TickTreePasses();
             if (Deferred.Count == 0 || Time.time < _nextDeferredTry)
             {
                 return;
