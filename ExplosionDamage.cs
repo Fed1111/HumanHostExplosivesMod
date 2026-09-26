@@ -1202,6 +1202,7 @@ namespace HumanHostExplosives
         /// </summary>
         internal static void TickDeferred()
         {
+            SliceWatchdog.Unstick(Smash_Fallen_Manager.ins);   // every frame: melee/bullets use the same slot
             if (Clearances.Count > 0)
             {
                 TickClearance();
