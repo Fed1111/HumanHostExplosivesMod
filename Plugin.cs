@@ -187,6 +187,7 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> DemoCoreRadius;
         internal static ConfigEntry<bool> FastDemolitionCollapse;
         internal static ConfigEntry<bool> BuildingSupportCheck;
+        internal static ConfigEntry<int> SupportSpan;
         internal static ConfigEntry<KeyCode> MinePickupKey;
         internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
@@ -487,6 +488,11 @@ namespace HumanHostExplosives
                 "After a demolition charge, check the WHOLE world building it hit: any part no longer connected to the ground " +
                 "through standing walls/floors comes down, lowest first. The game's own check only looks at the few sections around " +
                 "each break, which can leave most of a building floating over a missing ground floor.");
+            SupportSpan = Config.Bind(
+                "RemoteCharge", "SupportSpan", 1,
+                RangeInt("Building support check: how much further (in 4 m sections) a part of a world building may end up from the nearest " +
+                "wall/column still standing under it than it was before the blast, before it comes down. 0 = anything that lost the " +
+                "support directly under it falls; higher = floors and roofs bridge wider gaps.", 0, 5));
             LootChance = Config.Bind(
                 "Loot", "LootChance", 0.3f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
