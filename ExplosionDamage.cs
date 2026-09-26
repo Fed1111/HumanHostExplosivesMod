@@ -898,6 +898,18 @@ namespace HumanHostExplosives
                 // list was empty - a mismatched ancestor, not the true owner - so every piece was
                 // silently skipped despite clearly existing, being active, and being in range.
                 Battle_Info directPiece = col.GetComponentInParent<Battle_Info>();
+                // Never touch a block the game is still PLACING (its deploy coroutine is mid-way: rubble landing
+                // from a collapse, a player build). Breaking it pulls its renderer out from under
+                // Build_System.To_Deploy_Object, which then throws and leaves the game's build lock stuck.
+                Build_Info owner = directPiece != null && directPiece.FatherBI != null ? directPiece.FatherBI : col.GetComponentInParent<Build_Info>();
+                if (owner != null && owner.top_Info != null && owner.top_Info.Is_Detecting_Battles)
+                {
+                    continue;
+                }
+                if (wholeBlocks && owner != null && owner._ItemType == Build_Info.ItemType.GroundDebris)
+                {
+                    continue;   // a collapse's own rubble: demolishing it again is pointless and races its placement
+                }
                 if (wholeBlocks && directPiece != null && directPiece.FatherBI != null &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.ZoneSmashBI &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.SysHouseBigWall)
