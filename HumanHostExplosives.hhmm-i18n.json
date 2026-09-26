@@ -182,6 +182,18 @@
     "DemoDamage": {
       "en": "Demolition damage"
     },
+    "DemoCoreRadius": {
+      "en": "Demolition cut radius (m)"
+    },
+    "BuildingSupportCheck": {
+      "en": "Buildings collapse"
+    },
+    "SupportSpan": {
+      "en": "Collapse tolerance"
+    },
+    "FastCollapse": {
+      "en": "Fast collapse"
+    },
     "APDamage": {
       "en": "Anti-personnel damage"
     },
@@ -229,6 +241,12 @@
     },
     "ExplosionsAttractZombies": {
       "en": "Explosions attract zombies"
+    },
+    "ResourcesOnGround": {
+      "en": "Resources drop on the ground"
+    },
+    "DebrisChunks": {
+      "en": "Debris chunks"
     },
     "ExplosionVolume": {
       "en": "Explosion volume"
@@ -430,6 +448,18 @@
     "DemoDamage": {
       "en": "Damage to creatures at the centre of a demolition charge."
     },
+    "DemoCoreRadius": {
+      "en": "Wall sections within this distance of a demolition charge are cut out. Larger = more destroyed, slower."
+    },
+    "BuildingSupportCheck": {
+      "en": "After a demolition charge, anything in the building no longer held up from the ground comes down."
+    },
+    "SupportSpan": {
+      "en": "How much wider a gap floors may bridge after a blast before they fall. 0 = lose the support under it and it falls."
+    },
+    "FastCollapse": {
+      "en": "Cut each collapsing section in one frame: a quick collapse with a brief stutter, instead of a slow one."
+    },
     "APDamage": {
       "en": "Fragment damage in front of an anti-personnel charge."
     },
@@ -477,6 +507,12 @@
     },
     "ExplosionsAttractZombies": {
       "en": "Zombies path to the blast, not to you, so a thrown explosive works as a distraction."
+    },
+    "ResourcesOnGround": {
+      "en": "Resources knocked loose by an explosion land where the block was, instead of going into your bag."
+    },
+    "DebrisChunks": {
+      "en": "Blasts next to a structure throw chunks of it outward. Visual only."
     },
     "ExplosionVolume": {
       "en": "Volume of the detonation. Values above 1 amplify."

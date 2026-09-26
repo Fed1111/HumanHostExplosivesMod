@@ -75,27 +75,28 @@ The falloff chart images were rendered 2026-09-17 from an interactive HTML chart
 
 ## Title
 
-    Explosives — Grenades, Molotovs & Mines
+    Explosives — Grenades, Molotovs, Mines & Demolition
 
 ## Short description
 
-    Craftable grenades, contact grenades, nail bombs, Molotovs with real fire, and placeable land
-    mines. Throw animations, structural damage, zombies that burn. Fully configurable.
+    Craftable grenades, Molotovs with real fire, land mines and remote demolition charges that bring
+    whole buildings down. Throw animations, zombies that burn, fully configurable.
 
 ## Description (Steam BBCode)
 
 ```
 [h1]Explosives[/h1]
-Craftable explosives for Human Host. Proper throw animations, real structural damage, fire that
-spreads to zombies, mines, and everything tunable.
+Craftable explosives for Human Host. Proper throw animations, real structural damage, buildings that
+collapse, fire that spreads between zombies, mines, and everything tunable.
 
 [h2]What it adds[/h2]
 [list]
 [*][b]Grenade[/b] (Gun Workbench): 3 second fuse, area damage that respects cover, breaks walls.
 [*][b]Contact grenade[/b] (Gun Workbench): explodes on the first thing it hits. A slightly smaller
 charge than the grenade.
-[*][b]Molotov cocktail[/b] (hand-crafted): shatters into a pool of fire. Zombies that walk through
-catch fire and keep burning. So can you. The flames and light are the game's own torch effects.
+[*][b]Molotov cocktail[/b] (hand-crafted): shatters into a wide pool of fire that burns for about 20
+seconds. Zombies that walk through catch fire, keep burning, and set the zombies around them alight.
+So can you. The flames and light are the game's own torch effects.
 [*][b]Nail bomb[/b] (hand-crafted): a crude pipe bomb that sprays shrapnel. Cover blocks it, it's
 brutal in the open, it's weak against walls, and it can make you bleed.
 [*][b]Land mine[/b] (Gun Workbench): tap LMB and your character kneels to set it down where you are
@@ -103,14 +104,19 @@ looking. It arms once you step away, blinks red, and blows up whatever comes clo
 blast near it, and it goes off. Pick it back up with your interact key. Saved with your game.
 [*][b]Improvised mine[/b] (hand-crafted, Trap tab): nails in a can on a spring trigger. It clicks
 before it blows, and sometimes it doesn't go off at all.
-[*][b]Remote charges[/b] (Gun Workbench), two kinds: the [b]demolition charge[/b] (2000 structure
-damage, built for breaching walls) and the [b]anti-personnel charge[/b] (faces the way you look, fires a
-wide fan of fragments). Place them like mines; a small on-screen widget shows how many are out and
-whether they are ARMING or READY, and one key (B by default) sets them all off. No detonator to carry.
-Shootable, can be picked back up, saved with your game.
+[*][b]Remote charges[/b] (Gun Workbench), two kinds. The [b]demolition charge[/b] sticks to walls or
+floors, cuts out the walls around it and [b]collapses the building[/b]: whatever is no longer held up from
+the ground comes down, lowest floors first, and stays destroyed when you save. It fells trees too. The
+[b]anti-personnel charge[/b] faces the way you look and fires a wide fan of fragments. Place them like
+mines; a small on-screen widget shows how many are out and whether they are ARMING or READY, and one key
+(B by default) sets them all off. No detonator to carry. Shootable, can be picked back up, saved with
+your game.
 [*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
 [*]Explosions and breaking glass [b]draw zombies[/b] to the spot, not to you, so a throw works as a
 distraction. Lure them onto a mine.
+[*]Blasts throw chunks of what they hit, and resources knocked loose land on the ground, not in your bag.
+[*]Explosive and fire kills give the same XP as a gun kill, with the same skull marker.
+[*]Every explosive stacks to 10. Each explosion type has several recorded sounds, picked at random.
 [/list]
 
 [h2]Recipes[/h2]
@@ -141,7 +147,8 @@ both, and never copy the DLL out of its folder.
 
 [h2]Known limits[/h2]
 [list]
-[*]Fires are not saved (placed mines are).
+[*]Fires are not saved (placed mines and charges are).
+[*]A big collapse can cause a brief stutter. Turn off "Fast collapse" for a slower, smooth one.
 [*]Mines hurt you too by default, like the game's own traps. They never arm while you are next to
 one. Turn off "Mines can hit you" if you'd rather they only hit hostiles.
 [*]Not tested in multiplayer.
@@ -190,4 +197,5 @@ land mine and improvised mine. The recipes for all six items were reworked. Chan
   `resource_items_icon_assets_all_*.bundle`.
 - Recipe defaults changed, so `BindMigrated` in Plugin.cs migrates any upgrader value that still
   equals the 0.2.x default (§48). A fresh config skips that migration.
-- Nothing in 0.3.0 has been run in-game yet.
+- Play-tested 2026-09-25, including a fresh install with no config. Images regenerated the same day:
+  the thumbnail now shows the demolition charge, and the example image has the final recipes.
