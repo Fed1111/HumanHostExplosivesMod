@@ -142,6 +142,10 @@
       <HintPath>$(ManagedDir)\Build_System.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Global_Funcs">
       <HintPath>$(ManagedDir)\Global_Funcs.dll</HintPath>
       <Private>false</Private>
