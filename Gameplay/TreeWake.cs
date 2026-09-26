@@ -105,7 +105,7 @@ namespace HumanHostExplosives
                 FlushFallChecks(topOnHit);
                 if (broken > 0)
                 {
-                    Plugin.Log.LogInfo($"[Demolition] tree pass {p.Pass + 1}: {broken} tree(s) that loaded after the blast brought down.");
+                    Plugin.Diag($"[Demolition] tree pass {p.Pass + 1}: {broken} tree(s) that loaded after the blast brought down.");
                 }
                 if (more)
                 {

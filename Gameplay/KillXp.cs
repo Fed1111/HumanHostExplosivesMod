@@ -81,7 +81,7 @@ namespace HumanHostExplosives
                     if (player != null && player._charSkills != null)
                     {
                         player._charSkills.GainCharacterExp((int)c.char_Status._MaxHP);
-                        Plugin.Log.LogInfo($"[XP] +{(int)c.char_Status._MaxHP} (x{G_Save._config._ExpFactor:F2} game XP rate) for an explosive/fire kill of {c.name}.");
+                        Plugin.Diag($"[XP] +{(int)c.char_Status._MaxHP} (x{G_Save._config._ExpFactor:F2} game XP rate) for an explosive/fire kill of {c.name}.");
                         ShowKillMarker();
                     }
                     else

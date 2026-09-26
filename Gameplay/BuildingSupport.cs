@@ -251,7 +251,7 @@ namespace HumanHostExplosives
             }
             if (loose.Count == 0)
             {
-                Plugin.Log.LogInfo($"[Support] '{bi.name}' round {round}: all {standing.Count} standing section(s) still supported.");
+                Plugin.Diag($"[Support] '{bi.name}' round {round}: all {standing.Count} standing section(s) still supported.");
                 return 0;
             }
 

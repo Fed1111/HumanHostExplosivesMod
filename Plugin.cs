@@ -189,6 +189,15 @@ namespace HumanHostExplosives
         internal static ConfigEntry<bool> BuildingSupportCheck;
         internal static ConfigEntry<int> SupportSpan;
         internal static ConfigEntry<KeyCode> SupportProbeKey;
+
+        /// <summary>Per-event detail for troubleshooting - only with Diagnostics.EnableDiagnostics on.</summary>
+        internal static void Diag(string message)
+        {
+            if (EnableDiagnostics != null && EnableDiagnostics.Value)
+            {
+                Log.LogInfo(message);
+            }
+        }
         internal static ConfigEntry<KeyCode> MinePickupKey;
         internal static ConfigEntry<float> GrenadeRattleVolume;
         internal static ConfigEntry<string> LootTags;
@@ -496,7 +505,7 @@ namespace HumanHostExplosives
                 "support directly under it falls; higher = floors and roofs bridge wider gaps (1 left 4 m rings of floor hanging around a blown-out area).", 0, 5),
                 1);
             SupportProbeKey = Config.Bind(
-                "RemoteCharge", "SupportProbeKey", KeyCode.Semicolon,
+                "RemoteCharge", "SupportProbeKey", KeyCode.None,
                 "Test key: look at part of a world building and press it to see what the building support check thinks of it " +
                 "(standing, on the ground or not, and what holds it up). None = off.");
             LootChance = Config.Bind(

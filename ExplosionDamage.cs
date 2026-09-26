@@ -497,7 +497,7 @@ namespace HumanHostExplosives
             {
                 return;
             }
-            Plugin.Log.LogInfo($"[Demolition] wall cutting finished: {_st2Done} section(s) broken ({_st2Dropped} pieces dropped), " +
+            Plugin.Diag($"[Demolition] wall cutting finished: {_st2Done} section(s) broken ({_st2Dropped} pieces dropped), " +
                                $"{_st2NoCut} never got cut, {_st2NoShards} cut but had no pieces to drop.");
             _st2Done = _st2Dropped = _st2NoCut = _st2NoShards = 0;
         }
@@ -717,10 +717,10 @@ namespace HumanHostExplosives
                     int standing = CountStanding(c.Center, out string what);
                     if (standing == 0)
                     {
-                        Plugin.Log.LogInfo($"[Demolition] clearance pass {c.Pass}: the charge's core is clear.");
+                        Plugin.Diag($"[Demolition] clearance pass {c.Pass}: the charge's core is clear.");
                         continue;
                     }
-                    Plugin.Log.LogInfo($"[Demolition] clearance pass {c.Pass}: {standing} thing(s) still standing in the core ({what}) - hitting again.");
+                    Plugin.Diag($"[Demolition] clearance pass {c.Pass}: {standing} thing(s) still standing in the core ({what}) - hitting again.");
                     ApplyToBuildables(c.Center, Plugin.DemoCoreRadius.Value, c.Damage, wholeBlocks: true);
                     if (c.Pass < ClearanceDelays.Length)
                     {
@@ -809,7 +809,7 @@ namespace HumanHostExplosives
                               (piece != null ? $" piece(smashed={piece.Smashed}, fallen={piece.Is_Fallen})" : "") +
                               (IsShardPiece(c) ? " [cut shard]" : ""));
                 }
-                Plugin.Log.LogInfo("[Demolition] nearest to the charge: " + (parts.Count == 0 ? "nothing built" : string.Join(" | ", parts)));
+                Plugin.Diag("[Demolition] nearest to the charge: " + (parts.Count == 0 ? "nothing built" : string.Join(" | ", parts)));
             }
             catch (System.Exception ex)
             {
@@ -1404,7 +1404,7 @@ namespace HumanHostExplosives
                 }
                 if (codedFurni + codedOther > 0)
                 {
-                    Plugin.Log.LogInfo($"[Demolition] prepared {codedFurni} furniture + {codedOther} other world-building piece(s) " +
+                    Plugin.Diag($"[Demolition] prepared {codedFurni} furniture + {codedOther} other world-building piece(s) " +
                                        $"for breaking ({visited} connected piece(s) checked).");
                 }
             }
@@ -1495,7 +1495,7 @@ namespace HumanHostExplosives
                                 _demoShardsRefused--;
                                 continue;
                             }
-                            Plugin.Log.LogInfo($"[Demolition] '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}) piece '{piece.name}' " +
+                            Plugin.Diag($"[Demolition] '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}) piece '{piece.name}' " +
                                                $"still standing after a forced smash: layer {piece.gameObject.layer}, " +
                                                $"HP left {buildInfo.Shards_HP_Left}.");
                         }

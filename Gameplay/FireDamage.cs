@@ -69,7 +69,7 @@ namespace HumanHostExplosives
                 {
                     Logged.Clear();
                 }
-                Plugin.Log.LogInfo($"[Fire] burning {ctrl.name} (MaxHP={ctrl.char_Status._MaxHP:F0}) for {damage:F0}/tick.");
+                Plugin.Diag($"[Fire] burning {ctrl.name} (MaxHP={ctrl.char_Status._MaxHP:F0}) for {damage:F0}/tick.");
             }
             return true;
         }

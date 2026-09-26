@@ -277,7 +277,7 @@ namespace HumanHostExplosives
                 Ignite(other, b.Attacker, spread: true);
                 if (Plugin.EnableDiagnostics.Value)
                 {
-                    Plugin.Log.LogInfo($"[Fire] spread from {source.name} to {other.name}.");
+                    Plugin.Diag($"[Fire] spread from {source.name} to {other.name}.");
                 }
             }
         }
