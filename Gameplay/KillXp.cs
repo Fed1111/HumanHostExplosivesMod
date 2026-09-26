@@ -49,6 +49,11 @@ namespace HumanHostExplosives
                     if (player != null && player._charSkills != null)
                     {
                         player._charSkills.GainCharacterExp((int)c.char_Status._MaxHP);
+                        Plugin.Log.LogInfo($"[XP] +{(int)c.char_Status._MaxHP} (x{G_Save._config._ExpFactor:F2} game XP rate) for an explosive/fire kill of {c.name}.");
+                    }
+                    else
+                    {
+                        Plugin.Log.LogWarning($"[XP] kill of {c.name} not credited - no player skills found.");
                     }
                     Done.Add(c);
                 }
