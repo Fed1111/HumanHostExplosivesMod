@@ -1074,8 +1074,8 @@ namespace HumanHostExplosives
                 Range("Demolition charge: radius (m) of structure damage and the visual explosion.", 1f, 20f));
             DemoDestroysBlocks = Config.Bind("RemoteCharge", "DemoDestroysBlocks", false,
                 "Off: the charge deals DemoBuildableDamage to every block in range - a block breaks only if that is enough. On: every block in the core is destroyed outright (old behaviour).");
-            DemoBuildableDamage = Config.Bind("RemoteCharge", "DemoBuildableDamage", 2000f,
-                Range("Demolition charge: flat damage to buildables within DemoEffectRadius (grenade: 100). This is what it is for.", 0f, 3000f));
+            DemoBuildableDamage = Config.Bind("RemoteCharge", "DemoBuildableDamage", 5000f,
+                Range("Demolition charge: flat damage to buildables within DemoEffectRadius (grenade: 100). This is what it is for.", 0f, 10000f));
             DemoNoiseRadius = Config.Bind("RemoteCharge", "DemoNoiseRadius", 80f,
                 Range("Demolition charge: how far (m) zombies hear it.", 0f, 300f));
             APDamage = Config.Bind("RemoteCharge", "APDamage", 1800f,
