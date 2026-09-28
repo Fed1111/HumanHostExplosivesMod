@@ -944,7 +944,7 @@ namespace HumanHostExplosives
                 {
                     continue;   // trees get their own smash a moment later (TickTreePasses) - see TreeWake
                 }
-                if (wholeBlocks && directPiece != null && directPiece.FatherBI != null &&
+                if (wholeBlocks && directPiece != null && directPiece.FatherBI != null && !IsRailwayPiece(directPiece.FatherBI) &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.ZoneSmashBI &&
                     directPiece.FatherBI._ItemType != Build_Info.ItemType.SysHouseBigWall)
                 {
@@ -1076,7 +1076,7 @@ namespace HumanHostExplosives
                     continue;
                 }
 
-                if (wholeBlocks)
+                if (wholeBlocks && !IsRailwayPiece(buildInfo))
                 {
                     hits += SmashWholeBlock(buildInfo, topOnHit, alreadyHitPieces);
                     continue;
@@ -1440,6 +1440,13 @@ namespace HumanHostExplosives
             bi.IsCoding = true;
             return true;
         }
+
+        /// <summary>
+        /// Generated track from the Railway mod (tagged RailPieceTag): demolition gives it ordinary blast
+        /// damage instead of smashing the whole block, so its configured track health decides (user
+        /// 2026-09-28). Looked up by name - no reference to the Railway mod.
+        /// </summary>
+        private static bool IsRailwayPiece(Build_Info bi) => bi != null && bi.GetComponent("RailPieceTag") != null;
 
         /// <summary>Breaks every shard of one block (demolition) - see ApplyToBuildables' wholeBlocks.</summary>
         private static int SmashWholeBlock(Build_Info buildInfo, TopOnHit topOnHit, HashSet<Battle_Info> alreadyHit)
