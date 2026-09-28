@@ -143,7 +143,7 @@ namespace HumanHostExplosives
             p.ParticulateScale = Plugin.GrenadeParticulateScale.Value * 1.4f;
             p.HitFlyForce = 1.6f;
             p.Volume = Plugin.ExplosionVolume.Value * 1.25f;
-            p.WholeBlocks = true;
+            p.WholeBlocks = Plugin.DemoDestroysBlocks.Value;   // off: plain block damage (DemoBuildableDamage) - user 2026-09-28
             p.Heavy = true;
             p.Debris = 26;
             p.DebrisForce = 13f;

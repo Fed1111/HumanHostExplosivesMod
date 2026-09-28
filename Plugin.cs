@@ -168,6 +168,7 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> DemoRadius;
         internal static ConfigEntry<float> DemoEffectRadius;
         internal static ConfigEntry<float> DemoBuildableDamage;
+        internal static ConfigEntry<bool> DemoDestroysBlocks;
         internal static ConfigEntry<float> DemoNoiseRadius;
         internal static ConfigEntry<float> APDamage;
         internal static ConfigEntry<float> APRange;
@@ -1071,6 +1072,8 @@ namespace HumanHostExplosives
                 Range("Demolition charge: creature damage radius (m).", 1f, 30f));
             DemoEffectRadius = Config.Bind("RemoteCharge", "DemoEffectRadius", 6f,
                 Range("Demolition charge: radius (m) of structure damage and the visual explosion.", 1f, 20f));
+            DemoDestroysBlocks = Config.Bind("RemoteCharge", "DemoDestroysBlocks", false,
+                "Off: the charge deals DemoBuildableDamage to every block in range - a block breaks only if that is enough. On: every block in the core is destroyed outright (old behaviour).");
             DemoBuildableDamage = Config.Bind("RemoteCharge", "DemoBuildableDamage", 2000f,
                 Range("Demolition charge: flat damage to buildables within DemoEffectRadius (grenade: 100). This is what it is for.", 0f, 3000f));
             DemoNoiseRadius = Config.Bind("RemoteCharge", "DemoNoiseRadius", 80f,
