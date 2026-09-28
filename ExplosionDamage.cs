@@ -933,9 +933,12 @@ namespace HumanHostExplosives
                 {
                     continue;
                 }
-                if (wholeBlocks && owner != null && owner._ItemType == Build_Info.ItemType.GroundDebris)
+                // A collapse's own rubble: demolishing it again is pointless and races its placement. World
+                // rubble piles (scene props, e.g. Concrete_Debris_Big_*) are GroundDebris too but must take
+                // damage like any structure (user 2026-09-28: "charges should damage everything").
+                if (wholeBlocks && owner != null && owner._ItemType == Build_Info.ItemType.GroundDebris && owner._Type != Build_Info.Type.ScenePropBI)
                 {
-                    continue;   // a collapse's own rubble: demolishing it again is pointless and races its placement
+                    continue;
                 }
                 if (wholeBlocks && owner != null && owner._Type == Build_Info.Type.TerrainTreeBI)
                 {
