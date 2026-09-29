@@ -1471,7 +1471,7 @@ namespace HumanHostExplosives
         private static float _chargeVisualFraction;
         private static bool _chargeAimingActive;
 
-        internal static void SetChargeVisual(bool active, float fraction = 0f)
+        internal static void SetChargeVisual(bool active, float fraction = 0f, bool allowAimStance = true)
         {
             _chargeVisualActive = active;
             _chargeVisualFraction = Mathf.Clamp01(fraction);
@@ -1484,7 +1484,7 @@ namespace HumanHostExplosives
 
             if (active)
             {
-                if (!_chargeAimingActive && !player._InFirstPerson)
+                if (allowAimStance && !_chargeAimingActive && !player._InFirstPerson)
                 {
                     player.Start_Aiming_Mode();
                     _chargeAimingActive = true;
@@ -1604,6 +1604,7 @@ namespace HumanHostExplosives
         private Slot_Info _quickChargeSlot;
         private ExplosiveDef _quickChargeDef;
         private float _quickChargeStart;
+        private bool _quickGunInHand;
 
         private void StartQuickThrowCharge()
         {
@@ -1629,7 +1630,11 @@ namespace HumanHostExplosives
                     _quickChargeSlot = slot;
                     _quickChargeDef = def;
                     _quickChargeStart = Time.time;
-                    SetChargeVisual(true, 0f);
+                    // With a gun in hand, stay out of the aim stance and skip the throw animation: the gun's own
+                    // hold pose doesn't hand back after the throw clip, so the arms froze on its last frame.
+                    Player_Input p = Player_Input.ins;
+                    _quickGunInHand = p != null && p._hasMeleeOrRangedWeapon >= 2;
+                    SetChargeVisual(true, 0f, !_quickGunInHand);
                     return;
                 }
             }
@@ -1658,7 +1663,7 @@ namespace HumanHostExplosives
                 return;
             }
 
-            SetChargeVisual(true, (Time.time - _quickChargeStart) / MaxChargeSeconds.Value);
+            SetChargeVisual(true, (Time.time - _quickChargeStart) / MaxChargeSeconds.Value, !_quickGunInHand);
 
             if (CancelChargeRequested())
             {
@@ -1699,7 +1704,7 @@ namespace HumanHostExplosives
             // Same animation timing as the normal equip-and-click throw (ExplosiveUseHook) - play
             // the clip and hold the projectile back until the hand actually opens, rather than
             // spawning instantly like DebugThrow does.
-            float animDuration = ThrowAnimation.Play(ThrowAnimationSpeed.Value);
+            float animDuration = _quickGunInHand ? 0f : ThrowAnimation.Play(ThrowAnimationSpeed.Value);
             if (animDuration > 0f)
             {
                 float releaseDelay = animDuration * Mathf.Clamp01(ReleaseNormalized.Value);
