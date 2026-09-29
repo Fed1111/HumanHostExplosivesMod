@@ -863,7 +863,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 9;
+        private const int CurrentConfigVersion = 10;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves
@@ -948,9 +948,9 @@ namespace HumanHostExplosives
                 Range("Radius (m) of the burning pool a Molotov leaves.", 1f, 8f), 3f);
             MolotovDuration = BindMigrated("Molotov", "MolotovDuration", 20f,
                 Range("How long (s) the pool burns, including a 1.5 s die-down at the end.", 2f, 60f), 10f);
-            MolotovNoiseRadius = Config.Bind("Molotov", "MolotovNoiseRadius", 25f,
-                Range("How far (m) zombies hear the bottle smash. The fire itself makes no further noise - zombies that " +
-                "come to look walk into it.", 0f, 100f));
+            MolotovNoiseRadius = BindMigrated("Molotov", "MolotovNoiseRadius", 0f,
+                Range("How far (m) zombies hear the bottle smash. 0 by default: zombies that came to look just walked into the fire " +
+                "and stood in it. The fire itself makes no noise.", 0f, 100f), 25f);
 
             FireGroundDamage = BindMigrated("Fire", "FireGroundDamage", 40f,
                 Range("Damage per tick to anyone standing in a burning pool. A zombie also catches fire (see BurnDamage).", 0f, 200f), 20f);

@@ -20,7 +20,7 @@ namespace HumanHostExplosives
     {
         internal static void Emit(Vector3 position, float hearDistance)
         {
-            if (!Plugin.ExplosionsAttractZombies.Value)
+            if (hearDistance <= 0f || !Plugin.ExplosionsAttractZombies.Value)
             {
                 return;
             }
