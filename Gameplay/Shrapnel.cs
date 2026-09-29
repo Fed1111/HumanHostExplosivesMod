@@ -8,6 +8,8 @@ namespace HumanHostExplosives
     /// </summary>
     internal static class Shrapnel
     {
+        private static readonly System.Collections.Generic.List<C_Controller_Base> Victims = new System.Collections.Generic.List<C_Controller_Base>();
+
         /// <summary>
         /// Damages every character in range that shrapnel can actually reach.
         ///
@@ -37,7 +39,11 @@ namespace HumanHostExplosives
             bool bledThisBlast = false;
             float radiusSqr = radius * radius;
 
-            foreach (C_Controller_Base victim in creatureMgr.capCol_To_Controller.Values)
+            // Snapshot: a victim killed by a fragment leaves the dictionary mid-loop ("Collection was
+            // modified", nail bomb 2026-09-28).
+            Victims.Clear();
+            Victims.AddRange(creatureMgr.capCol_To_Controller.Values);
+            foreach (C_Controller_Base victim in Victims)
             {
                 if (victim == null)
                 {
