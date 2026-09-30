@@ -41,6 +41,9 @@ namespace HumanHostExplosives
 
             // Snapshot: a victim killed by a fragment leaves the dictionary mid-loop ("Collection was
             // modified", nail bomb 2026-09-28).
+            // Each creature is in the dictionary up to 4 times (capsule, trigger, two push colliders), so a
+            // victim takes this damage up to 4x. Known and KEPT (user, 2026-09-30): the shrapnel items were
+            // tuned by feel with it and are weak enough already - de-duping would cut them to ~1/4.
             Victims.Clear();
             Victims.AddRange(creatureMgr.capCol_To_Controller.Values);
             foreach (C_Controller_Base victim in Victims)
