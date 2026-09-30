@@ -1,0 +1,7 @@
+0.3.1 - Explosives can be found in loot again, plus fixes.
+
+LOOT: 0.3.0 made explosives nearly impossible to find. They only came from the Military Gear loot group, which military crates roll in about 1 slot in 200. They are back in the Ammo group as well, at a quarter of the 0.2 odds, so they turn up in military crates and occasionally elsewhere without being common. Your config is updated automatically unless you changed Loot Tags or Loot Chance yourself.
+MOLOTOV: the bottle smashing no longer attracts zombies. They used to walk to the sound and stand in the fire.
+QUICK THROW: throwing with G while holding a gun no longer leaves your arms stuck in the end of the throw pose. With a gun in hand the explosive leaves straight from the camera; the full throw animation still plays with the explosive or a melee weapon equipped.
+DEMOLITION CHARGE: by default it now deals heavy block damage (5,000) instead of smashing whole blocks outright; whole-block smashing is still available in the settings. World rubble piles take damage, and Endless Rails track pieces take ordinary blast damage.
+Fix: an error (and targets skipped) when shrapnel killed something partway through a blast.

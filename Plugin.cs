@@ -14,7 +14,7 @@ namespace HumanHostExplosives
     {
         public const string Guid = "com.nf.humanhostexplosives";
         public const string Name = "Human Host Explosives";
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
 
         // Invented, fixed Addressables GUIDs for our own items - not reused from anything in the
         // game's own catalog. Kept as constants (not config) since nothing needs to override them.
@@ -396,7 +396,7 @@ namespace HumanHostExplosives
 
             // Config versions: 0 = 0.2.2 and earlier, 1 = the first 0.3.0 dev build (set only the old
             // MigratedDefaults030 flag - never published), 2 = recipe rework + mine tuning, 3 = loot moved to
-            // military containers only (LootTags), 4 = MaxBurning 24 -> 48, 5 = DetonateKey X -> B. All unpublished dev steps; 0.3.0 ships at 5. A version NUMBER, not a
+            // military containers only (LootTags), 4 = MaxBurning 24 -> 48, 5 = DetonateKey X -> B. All unpublished dev steps; 0.3.0 ships at 5. 11 = 0.3.1 loot: Ammo tag back, LootChance 0.3 -> 0.25. A version NUMBER, not a
             // done/not-done flag: the flag made every later default change invisible to anyone who had
             // already run the first 0.3.0 build (their recipes stayed at 1-2 of each - 2026-09-25).
             MigratedDefaults030 = Config.Bind(
@@ -509,11 +509,12 @@ namespace HumanHostExplosives
                 "RemoteCharge", "SupportProbeKey", KeyCode.None,
                 "Test key: look at part of a world building and press it to see what the building support check thinks of it " +
                 "(standing, on the ground or not, and what holds it up). None = off.");
-            LootChance = Config.Bind(
-                "Loot", "LootChance", 0.3f,
+            LootChance = BindMigrated(
+                "Loot", "LootChance", 0.25f,
                 Range("Explosives are rarer than an ordinary item of their loot tag: when a container rolls one, it is kept " +
                 "with this chance and otherwise swapped for another item of the same tag. 1 = as common as anything else " +
-                "in the tag, 0 = never found (crafting only).", 0f, 1f));
+                "in the tag, 0 = never found (crafting only).", 0f, 1f),
+                0.3f);
             MinePickupKey = Config.Bind(
                 "Mine", "PickupKey", KeyCode.None,
                 "Key to pick up a placed mine you are looking at (within 2.5 m). None = the game's own interact key.");
@@ -521,13 +522,14 @@ namespace HumanHostExplosives
                 "Explosives", "GrenadeRattleVolume", 0.6f,
                 Range("Volume of the spoon (safety lever) flying off when a grenade or contact grenade is thrown. 0 = off.", 0f, 2f));
             LootTags = BindMigrated(
-                "Loot", "LootTags", "军用装备,Military Gear",
-                new ConfigDescription("Comma-separated loot tags to add explosives to. Military containers only since 0.3.0 - the " +
-                "Ammo tag rolls in far more containers and made explosives common. Tag names are localized: a Chinese " +
+                "Loot", "LootTags", "军用装备,弹药,Military Gear,Ammo",
+                new ConfigDescription("Comma-separated loot tags to add explosives to. Ammo is back since 0.3.1: military crates roll " +
+                "Military Gear in only 0.5% of slots (Ammo in 10%), so Military-only (0.3.0) made explosives almost unfindable; " +
+                "LootChance keeps them rarer than 0.2's Ammo-tag odds. Tag names are localized: a Chinese " +
                 "client reports 军用装备 (Military Gear), an English one Military Gear, so the default covers both. Matched " +
                 "case-insensitively as substrings. Open any container once with the mod loaded and the log lists every " +
                 "available tag ('[Loot] available loot tags: ...'). Takes effect after restarting the game."),
-                "军用装备,弹药,Military Gear,Ammo");
+                "军用装备,Military Gear");
 
             TemplateIconGuid = Config.Bind(
                 "Registry", "TemplateIconGuid", DefaultTemplateIconGuid,
@@ -863,7 +865,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 10;
+        private const int CurrentConfigVersion = 11;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves

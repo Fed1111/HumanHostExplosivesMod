@@ -48,9 +48,9 @@ namespace HumanHostExplosives.Registry
         // compiled default becomes. This fallback list is tried only when the user's configured
         // value matches nothing at all, so it self-heals that case without overriding anyone who
         // deliberately customized LootTags to something that actually does match.
-        // 0.3.0: military containers only. The Ammo tag rolls in far more containers, which made
-        // explosives common; Loot.LootChance thins them further (LootRarity).
-        private static readonly string[] FallbackTags = { "军用装备", "Military Gear" };
+        // 0.3.1: Ammo is back - military crates roll Military Gear in only 0.5% of slots, so 0.3.0's
+        // military-only list made explosives almost unfindable. Loot.LootChance thins them (LootRarity).
+        private static readonly string[] FallbackTags = { "军用装备", "弹药", "Military Gear", "Ammo" };
 
         /// <summary>
         /// Runs once, the first time a loot window is opened - by then Loot_Mgr.ins exists and its
@@ -86,7 +86,10 @@ namespace HumanHostExplosives.Registry
                 for (int i = 0; i < array.Length; i++)
                 {
                     object entry = array.GetValue(i);
-                    tags.Add(TagField.GetValue(entry) as string ?? "<null>");
+                    // Item count per tag: our share of a tag's picks is ours / (count + ours), so this is
+                    // what tuning LootChance needs.
+                    int count = (IconsField.GetValue(entry) as AssetReference[])?.Length ?? 0;
+                    tags.Add((TagField.GetValue(entry) as string ?? "<null>") + " (" + count + ")");
                 }
                 Plugin.Log.LogInfo("[Loot] available loot tags: " + string.Join(", ", tags.ToArray()));
 
