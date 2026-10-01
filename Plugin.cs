@@ -14,7 +14,7 @@ namespace HumanHostExplosives
     {
         public const string Guid = "com.nf.humanhostexplosives";
         public const string Name = "Human Host Explosives";
-        public const string Version = "0.3.1";
+        public const string Version = "0.3.2";
 
         // Invented, fixed Addressables GUIDs for our own items - not reused from anything in the
         // game's own catalog. Kept as constants (not config) since nothing needs to override them.
