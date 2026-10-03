@@ -191,6 +191,11 @@
     <Copy SourceFiles="$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)" ContinueOnError="true" Condition="Exists('$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json')" />    <Copy SourceFiles="$(TargetPath)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)"
           ContinueOnError="true" />
+    <!-- Shipped translations (Lang/en.json itself is written by the mod at startup). -->
+    <ItemGroup>
+      <LangFiles Include="$(MSBuildProjectDirectory)\Lang\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LangFiles)" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)\Lang" ContinueOnError="true" />
     <ItemGroup>
       <GrenadeAssets Include="$(MSBuildProjectDirectory)\Assets\Grenade\**\*.*" />
     </ItemGroup>
