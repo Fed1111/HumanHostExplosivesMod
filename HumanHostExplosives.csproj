@@ -186,7 +186,7 @@
   </ItemGroup>
 
   <!-- Drop the built DLL straight into the plugins folder -->
-  <Target Name="DeployToPlugins" AfterTargets="Build">
+  <Target Name="DeployToPlugins" AfterTargets="Build" Condition="'$(NoDeploy)' != 'true'">
     <!-- HHMM / ModMenu sidecar (labels + descriptions); regenerate with "HumanHost Audit/tools/gen_hhmm_sidecars.py". -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json" DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)" ContinueOnError="true" Condition="Exists('$(MSBuildProjectDirectory)\$(AssemblyName).hhmm-i18n.json')" />    <Copy SourceFiles="$(TargetPath)"
           DestinationFolder="$(BepInExDir)\plugins\$(AssemblyName)"
