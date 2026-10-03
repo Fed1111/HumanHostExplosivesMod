@@ -1,0 +1,3 @@
+0.3.3 - Translatable text.
+
+Every piece of text the mod shows - item names and descriptions, on-screen messages and the remote-charge widget - is now in Lang/en.json in the mod folder. Copy it to your language code (ru.json, de.json, fr.json, ...), translate the right-hand side and restart: the mod uses the file matching the game's language and English for anything missing. Item names and descriptions follow the language set in the game's options. Lang/README.txt has the details, including how to translate the settings names for ModMenu and the Mod Manager. Send me your file and I will include it with the mod.

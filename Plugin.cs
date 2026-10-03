@@ -14,7 +14,7 @@ namespace HumanHostExplosives
     {
         public const string Guid = "com.nf.humanhostexplosives";
         public const string Name = "Human Host Explosives";
-        public const string Version = "0.3.2";
+        public const string Version = "0.3.3";
 
         // Invented, fixed Addressables GUIDs for our own items - not reused from anything in the
         // game's own catalog. Kept as constants (not config) since nothing needs to override them.
@@ -592,6 +592,7 @@ namespace HumanHostExplosives
                 "back-to-back without hand-editing ThrowKind + pressing F7 each time. Same EnableDiagnostics gate as " +
                 "ThrowGrenadeKey itself.");
             Defs = BuildDefs();
+            Lang.Init(System.IO.Path.GetDirectoryName(typeof(Plugin).Assembly.Location), Defs);
             if (ConfigVersion.Value != CurrentConfigVersion)
             {
                 if (!_freshConfig && _storedConfigVersion < CurrentConfigVersion)
@@ -1641,7 +1642,7 @@ namespace HumanHostExplosives
                 }
             }
 
-            Toast("No explosive in inventory");
+            Toast(Lang.T("toast.noExplosive"));
         }
 
         /// <summary>Call once per frame. No-op unless a quick-throw charge is in progress.</summary>
@@ -1670,7 +1671,7 @@ namespace HumanHostExplosives
             if (CancelChargeRequested())
             {
                 CancelQuickThrowCharge();
-                Toast("Throw cancelled");
+                Toast(Lang.T("toast.throwCancelled"));
                 return;
             }
 
@@ -1718,7 +1719,7 @@ namespace HumanHostExplosives
             }
 
             Item_Slot_Mgr.ins?.Item_Stack_Minus_1(slot);
-            Toast($"{def.TooltipName} thrown");
+            Toast(Lang.T("toast.thrown", Lang.ItemName(def)));
         }
 
         private System.Collections.IEnumerator SpawnQuickThrowAtRelease(float delay, ExplosiveDef def, float throwSpeed)
@@ -1761,8 +1762,8 @@ namespace HumanHostExplosives
                 _hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
             }
             string text = m.Phase == PlacedMine.State.Triggered
-                ? $"{m.Def.TooltipName} - LIVE"
-                : $"[{MinePersistence.PickupKeyName()}] Pick up {m.Def.TooltipName}";
+                ? Lang.T("hint.mineLive", Lang.ItemName(m.Def))
+                : Lang.T("hint.pickUp", MinePersistence.PickupKeyName(), Lang.ItemName(m.Def));
             var rect = new Rect(Screen.width * 0.5f - 200f, Screen.height * 0.5f + 40f, 400f, 30f);
             _hintStyle.normal.textColor = Color.black;
             GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, _hintStyle);

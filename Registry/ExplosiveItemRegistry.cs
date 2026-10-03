@@ -186,6 +186,7 @@ namespace HumanHostExplosives.Registry
                 if (!AnyAmmoMaterial.Failed && _defs.Count > 0)
                 {
                     ExplosiveDef ammo = AnyAmmoMaterialDef(_defs[0].ModelGuid);
+                    Lang.AddItem(ammo);
                     if (ammo.TryLoadIconOnly())
                     {
                         GameObject ammoIcon = BuildIcon(iconTemplate, ammo);

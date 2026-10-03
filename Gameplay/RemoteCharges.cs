@@ -50,7 +50,7 @@ namespace HumanHostExplosives
             }
             if (ready.Count == 0)
             {
-                Plugin.Toast(CountPlaced() > 0 ? "No armed charges in range" : "No charges placed");
+                Plugin.Toast(Lang.T(CountPlaced() > 0 ? "toast.noArmedCharges" : "toast.noCharges"));
                 return;
             }
             Vector3 p = player.transform.position;
@@ -142,20 +142,20 @@ namespace HumanHostExplosives
             Color col;
             if (ready > 0)
             {
-                state = $"READY  [{Plugin.DetonateKey.Value}] detonate" + (ready < placed ? $" ({ready})" : "");
+                state = Lang.T("widget.ready", Plugin.DetonateKey.Value) + (ready < placed ? $" ({ready})" : "");
                 col = new Color(0.45f, 1f, 0.45f);
             }
             else if (arming > 0)
             {
-                state = "ARMING...";
+                state = Lang.T("widget.arming");
                 col = new Color(1f, 0.8f, 0.3f);
             }
             else
             {
-                state = "OUT OF RANGE";
+                state = Lang.T("widget.outOfRange");
                 col = new Color(0.7f, 0.7f, 0.7f);
             }
-            Shadowed(new Rect(x + 72f, y + 6f, 230f, 22f), $"REMOTE CHARGES  x{placed}", _title, new Color(0.95f, 0.92f, 0.85f));
+            Shadowed(new Rect(x + 72f, y + 6f, 230f, 22f), Lang.T("widget.title", placed), _title, new Color(0.95f, 0.92f, 0.85f));
             Shadowed(new Rect(x + 72f, y + 30f, 230f, 26f), state, _state, col);
         }
 
@@ -183,7 +183,7 @@ namespace HumanHostExplosives
                     if (f.FieldType == typeof(Hotkey_Sets) && f.GetValue(Player_HotKeys.ins) is Hotkey_Sets hk && hk != null && hk.keyCode == key)
                     {
                         Plugin.Log.LogWarning($"[Remote] detonate key {key} is also the game's '{f.Name}' key - change RemoteCharge.DetonateKey.");
-                        Plugin.Toast($"Remote detonate key {key} clashes with the game's {f.Name} key - change it in the config", 6f);
+                        Plugin.Toast(Lang.T("toast.detonateKeyClash", key, f.Name), 6f);
                         return;
                     }
                 }

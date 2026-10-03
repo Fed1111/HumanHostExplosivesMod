@@ -163,7 +163,7 @@ namespace HumanHostExplosives
 
             if (ctrl._isPlayer)
             {
-                Plugin.Toast("You're on fire!", 2f);
+                Plugin.Toast(Registry.Lang.T("toast.onFire"), 2f);
             }
             else if (Plugin.BurnPanic.Value && ctrl is NPC_Input npc)
             {

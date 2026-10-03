@@ -289,7 +289,7 @@ namespace HumanHostExplosives
         {
             if (m.Phase == PlacedMine.State.Triggered)
             {
-                Plugin.Toast("It's live - get away from it!");
+                Plugin.Toast(Lang.T("toast.mineLive"));
                 return;
             }
             Item_Slot_Mgr mgr = Item_Slot_Mgr.ins;
@@ -300,12 +300,12 @@ namespace HumanHostExplosives
             int added = mgr.Add_PurchasedItem_To_Player(new AssetReference(m.Def.IconGuid), 1);
             if (added <= 0)
             {
-                Plugin.Toast("No room in your inventory");
+                Plugin.Toast(Lang.T("toast.noRoomInventory"));
                 return;
             }
             m.Phase = PlacedMine.State.Done;
             SmallSounds.PlayClick(m.transform.position, 0.4f);
-            Plugin.Toast($"Picked up {m.Def.TooltipName}");
+            Plugin.Toast(Lang.T("toast.pickedUp", Lang.ItemName(m.Def)));
             Plugin.Log.LogInfo($"[Mine] '{m.Def.Tag}' picked up.");
             UnityEngine.Object.Destroy(m.gameObject);
             _lookedAt = null;

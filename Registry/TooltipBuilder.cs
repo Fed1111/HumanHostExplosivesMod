@@ -32,15 +32,6 @@ namespace HumanHostExplosives.Registry
             }
 
             List<Tooltip_Text.ToolTipInfo> infos = clone._Infos;
-            for (int i = 0; i < infos.Count; i++)
-            {
-                Tooltip_Text.ToolTipInfo info = infos[i];
-                info._ItemName = def.TooltipName;
-                info._ItemType = def.TooltipType;
-                info._ItemInstruction = def.TooltipInstruction;
-                info._ItemProperty = string.Empty;
-                infos[i] = info;
-            }
 
             // Pad out to cover every LanguageType value (14 as of this game version: Chinese_S/T,
             // English, Russian, Japanese, Korean, French, German, Polish, Spanish, Italian,
@@ -52,8 +43,7 @@ namespace HumanHostExplosives.Registry
             // would throw the moment the game tries to render OUR item's tooltip, deep inside
             // menu-population code. That surfaces as the recipe silently missing from the crafting
             // list, not as a visible error - confirmed live by a tester on German or Polish (unclear
-            // which) whose grenade recipe never appeared at all. Every entry above already gets the
-            // same non-localized text regardless of language, so padding with more copies of the
+            // which) whose grenade recipe never appeared at all. Every entry is filled in below, so padding with more copies of the
             // last entry costs nothing and closes the gap for every LanguageType value regardless of
             // the template's own coverage.
             int languageCount = Enum.GetValues(typeof(LanguageType)).Length;
@@ -65,6 +55,19 @@ namespace HumanHostExplosives.Registry
                 {
                     infos.Add(padTemplate);
                 }
+            }
+
+            // Entry i is LanguageType i, so each language gets its own translation (Lang/<code>.json),
+            // falling back to English - item text then follows a language switch in the game's menu.
+            for (int i = 0; i < infos.Count; i++)
+            {
+                string code = i < Lang.Codes.Length ? Lang.Codes[i] : "en";
+                Tooltip_Text.ToolTipInfo info = infos[i];
+                info._ItemName = Lang.In(code, def.Tag + ".name");
+                info._ItemType = Lang.In(code, def.Tag + ".type");
+                info._ItemInstruction = Lang.In(code, def.Tag + ".description");
+                info._ItemProperty = string.Empty;
+                infos[i] = info;
             }
 
             if (Plugin.EnableDiagnostics.Value)

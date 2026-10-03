@@ -44,7 +44,7 @@ namespace HumanHostExplosives
             MineManager.Prune();
             if (MineManager.Count >= Plugin.MaxActiveMines.Value)
             {
-                Plugin.Toast($"Too many mines placed ({MineManager.Count}/{Plugin.MaxActiveMines.Value})");
+                Plugin.Toast(Lang.T("toast.tooManyMines", MineManager.Count, Plugin.MaxActiveMines.Value));
                 return false;
             }
 
@@ -56,7 +56,7 @@ namespace HumanHostExplosives
 
             if (!FindSpot(cam, player, def.WallPlaceable, out point, out Vector3 normal, out onWall))
             {
-                Plugin.Toast("No room to place a mine here");
+                Plugin.Toast(Lang.T("toast.noRoomForMine"));
                 return false;
             }
 

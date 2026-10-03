@@ -111,7 +111,7 @@ namespace HumanHostExplosives
                     Plugin.Log.LogInfo($"[ChargeDiag] charge cancelled by player (RMB tap or CancelChargeKey) after {Time.time - _chargeStartTime:F2}s");
                 }
                 CancelCharge();
-                Plugin.Toast("Throw cancelled");
+                Plugin.Toast(Lang.T("toast.throwCancelled"));
                 return;
             }
 
