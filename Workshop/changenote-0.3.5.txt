@@ -1,0 +1,2 @@
+0.3.5
+- The throw animation now plays in first person too (on by default). Turn off "Animate in first person" in the settings to throw straight from the camera as before.
