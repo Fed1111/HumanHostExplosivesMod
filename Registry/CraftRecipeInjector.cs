@@ -33,7 +33,8 @@ namespace HumanHostExplosives.Registry
         private static readonly FieldInfo MatIconField = (PerMatDataType != null) ? AccessTools.Field(PerMatDataType, "matIcon") : null;
         private static readonly FieldInfo MatNeedCountField = (PerMatDataType != null) ? AccessTools.Field(PerMatDataType, "matNeedCount") : null;
 
-        private static readonly HashSet<Craft_Items> InjectedWindows = new HashSet<Craft_Items>();
+        // Instance ids, not the windows: a held window kept its whole world in memory after quit to menu (Leak Probe, 2026-10-03).
+        private static readonly HashSet<int> InjectedWindows = new HashSet<int>();
         private static bool _reflectionWarningLogged;
 
         private static bool ReflectionReady =>
@@ -64,7 +65,7 @@ namespace HumanHostExplosives.Registry
                         return;
                     }
 
-                    if (InjectedWindows.Contains(__instance))
+                    if (InjectedWindows.Contains(__instance.GetInstanceID()))
                     {
                         return;
                     }
@@ -79,7 +80,7 @@ namespace HumanHostExplosives.Registry
                         TryInject(__instance, def);
                     }
 
-                    InjectedWindows.Add(__instance);
+                    InjectedWindows.Add(__instance.GetInstanceID());
                 }
                 catch (Exception ex)
                 {

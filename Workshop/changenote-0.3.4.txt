@@ -1,0 +1,2 @@
+0.3.4 - memory fix
+- Memory fix: after you quit to the main menu, the mod kept hold of something from the world you had just left, and that kept the whole world in memory. Reloading saves in one session stacked a few GB of committed memory each time, until the game ran out. The mod now lets go as soon as you leave the world. No gameplay changes.
