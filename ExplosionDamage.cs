@@ -1,0 +1,1580 @@
+using System.Collections.Generic;
+using System.Linq;
+using HarmonyLib;
+using MLSpace;
+using UnityEngine;
+
+namespace HumanHostExplosives
+{
+    internal static partial class ExplosionDamage
+    {
+        /// <summary>
+        /// Applies falloff damage to every living creature within radius of center, using the
+        /// game's own trap/fall damage pipeline (Creature_Mgr + Smash_Fallen_Manager.Minus_Char_HP).
+        /// Returns the number of creatures hit.
+        ///
+        /// requireLineOfSight (default off, so nothing calling this without it changes behavior):
+        /// when on, each victim's damage is additionally scaled by an exposure fraction from the
+        /// same 3-sample-height raycast technique NailbombProjectile.FireShrapnel uses - a fully
+        /// covered target (0/3 clear) takes nothing, partial cover gives partial damage. This is
+        /// what makes the grenade respect cover the same way the nail bomb does.
+        /// </summary>
+        internal static int Apply(
+            Vector3 center,
+            float radius,
+            float maxDamage,
+            C_Controller_Base attacker,
+            float hitFlyForce = 1f,
+            float hitReact = 0.8f,
+            bool requireLineOfSight = false)
+        {
+            Creature_Mgr creatureMgr = Creature_Mgr.ins;
+            Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
+            if (creatureMgr == null || smashMgr == null || creatureMgr.capCol_To_Controller == null)
+            {
+                Plugin.Log.LogWarning("[Explosion] Creature_Mgr or Smash_Fallen_Manager not available (no world loaded?). Skipping AoE damage.");
+                return 0;
+            }
+
+            Global_Infos globalInfos = Global_Infos.ins;
+            int mask = globalInfos != null ? globalInfos.Mask_Creature.value : -1;
+
+            Collider[] hitColliders = Physics.OverlapSphere(center, radius, mask, QueryTriggerInteraction.Ignore);
+            var alreadyHit = new HashSet<C_Controller_Base>();
+            int hits = 0;
+            int unmappedColliders = 0;
+
+            foreach (Collider col in hitColliders)
+            {
+                if (!creatureMgr.capCol_To_Controller.TryGetValue(col, out C_Controller_Base ctrl) || ctrl == null)
+                {
+                    // A collider was found in range but doesn't map to a creature controller -
+                    // if this fires a lot with a creature genuinely nearby, the mask/lookup
+                    // itself is the problem, not the damage call below.
+                    unmappedColliders++;
+                    continue;
+                }
+                if (!alreadyHit.Add(ctrl))
+                {
+                    continue;
+                }
+                bool isSelf = attacker != null && ctrl == attacker;
+                if (isSelf && !Plugin.AllowSelfDamage.Value)
+                {
+                    continue;
+                }
+                if (ctrl.char_Status == null || ctrl.char_Status._CurrHP <= 0f)
+                {
+                    continue;
+                }
+
+                Vector3 targetPos = ctrl.capCol != null ? ctrl.capCol.bounds.center : ctrl.transform.position;
+                float dist = Vector3.Distance(center, targetPos);
+                float falloff = Mathf.Clamp01(1f - dist / radius);
+                if (falloff <= 0f)
+                {
+                    continue;
+                }
+
+                float exposure = 1f;
+                if (requireLineOfSight)
+                {
+                    exposure = ComputeExposure(creatureMgr, ctrl, center);
+                    if (exposure <= 0f)
+                    {
+                        continue;   // fully behind cover - nothing reaches this target
+                    }
+                }
+
+                Vector3 hitDirect = targetPos - center;
+                hitDirect = hitDirect.sqrMagnitude > 0.0001f ? hitDirect.normalized : Vector3.up;
+
+                // Grenades are risky to use at close range in real life too - self-damage uses
+                // the same falloff as everyone else, just scaled down separately so it can be
+                // tuned (or turned off) without affecting damage to others.
+                float damage = maxDamage * falloff * exposure * (isSelf ? Plugin.SelfDamageMultiplier.Value : 1f);
+                BodyColliderScript bodyScript = ctrl._ragDollMgr ? ctrl._ragDollMgr._headBodyScript : null;
+
+                KillXp.Watch(ctrl);   // full weapon-kill XP if this kills it (see KillXp)
+                smashMgr.Minus_Char_HP(
+                    ctrl,
+                    bodyScript,
+                    targetPos,
+                    switchToAnimancer: true,
+                    damage: damage,
+                    damageInterval: 0.05f,
+                    hitDirect: hitDirect,
+                    hitFlyForce: hitFlyForce,
+                    hitReact: hitReact,
+                    mustHitDown: false,
+                    bloodPos: targetPos,
+                    bloodParticle: null,
+                    useDefaultBloodPar: true,
+                    getEXP: false);
+
+                hits++;
+                // MaxHP logged deliberately (not diagnostics-gated) - zombie/creature HP is data,
+                // not something visible in decompiled code, and varies unknown amounts by zone/tier.
+                // This is the fastest way to get real numbers to tune ExplosionDamage/NailbombDamage
+                // against: play a few zones, grep LogOutput.log for "[Explosion] Hit" afterward.
+                Plugin.Log.LogInfo(
+                    $"[Explosion] Hit {ctrl.name} (MaxHP={ctrl.char_Status._MaxHP:F0}) at {dist:F1}m (falloff={falloff:F2}" +
+                    (requireLineOfSight ? $", exposure={exposure:F2}" : "") + $") for {damage:F0} dmg.");
+            }
+
+            if (hits == 0 && hitColliders.Length > 0)
+            {
+                Plugin.Log.LogInfo($"[Explosion] {hitColliders.Length} collider(s) in range, {unmappedColliders} didn't map to a creature controller, 0 hits.");
+            }
+
+            return hits;
+        }
+
+        // Same 3-height sampling NailbombProjectile.FireShrapnel uses - feet/torso/head - so a
+        // target crouched behind a wall only catches what's actually exposed rather than an
+        // all-or-nothing check.
+        private static readonly float[] ExposureSampleHeights = { 0.4f, 1.0f, 1.6f };
+
+        /// <summary>
+        /// Fraction (0..1) of ExposureSampleHeights that has a clear line from origin to the
+        /// victim - i.e. how much of their body the blast can actually reach.
+        /// </summary>
+        private static float ComputeExposure(Creature_Mgr creatureMgr, C_Controller_Base victim, Vector3 origin)
+        {
+            Vector3 basePos = victim.transform.position;
+            int clear = 0;
+            for (int i = 0; i < ExposureSampleHeights.Length; i++)
+            {
+                Vector3 target = basePos + Vector3.up * ExposureSampleHeights[i];
+                Vector3 delta = target - origin;
+                float dist = delta.magnitude;
+                if (dist < 0.01f)
+                {
+                    clear++;
+                    continue;
+                }
+
+                // Anything that isn't this victim's own collider counts as cover.
+                if (Physics.Raycast(origin, delta / dist, out RaycastHit hit, dist,
+                                     ~0, QueryTriggerInteraction.Ignore))
+                {
+                    C_Controller_Base blocker = ResolveCharacter(creatureMgr, hit.collider);
+                    if (blocker != victim)
+                    {
+                        continue;   // cover did its job for this sample point
+                    }
+                }
+                clear++;
+            }
+            return clear / (float)ExposureSampleHeights.Length;
+        }
+
+        /// <summary>
+        /// Maps a raycast-hit collider back to the character that owns it - a hit usually lands on
+        /// a ragdoll bone collider rather than the capsule Creature_Mgr keys its lookup by, so walk
+        /// up the hierarchy before giving up.
+        /// </summary>
+        private static C_Controller_Base ResolveCharacter(Creature_Mgr mgr, Collider col)
+        {
+            if (col == null)
+            {
+                return null;
+            }
+            if (mgr.capCol_To_Controller.TryGetValue(col, out C_Controller_Base direct) && direct != null)
+            {
+                return direct;
+            }
+            return col.GetComponentInParent<C_Controller_Base>();
+        }
+
+        /// <summary>
+        /// Applies flat (non-falloff) chip damage to nearby buildable/structural things,
+        /// regardless of their specific type or which physics layer they happen to use - a
+        /// grenade shouldn't need to know a structure's name or category to damage it. Combines
+        /// every damage path the vanilla game itself uses (see Tool_Interacter's hit-resolution
+        /// code): the generic per-shard Battle_Info.MinusHP() path most buildables use (shards
+        /// lazily spawned via Smash_Fallen_Manager.Spawn_BaIs_Under_BI), the separate single-HP-pool
+        /// SysHouse_BigWall_MinusHP() path for Build_Info.ItemType.SysHouseBigWall structures, and
+        /// a direct Battle_Info fallback for anything with a spawned shard collider but no
+        /// Build_Info in its parent chain. Searches the union of the Build/Battle/Scene layers
+        /// (Mask_Build alone missed at least one real structure entirely, at point-blank range,
+        /// across many throws). The one vanilla path NOT replicated is ZoneSmash_BI_MinusHP - an
+        /// earlier version of this method used it and it was a silent no-op for every wall tested,
+        /// including real player-built ones (confirmed via reflection into the private
+        /// Get_RealZonePosRound check it relies on internally); everything ZoneSmashBI-tagged that
+        /// still has spawnable shards is covered by the generic path instead.
+        /// Returns the number of pieces/structures actually damaged.
+        /// </summary>
+        /// <param name="wholeBlocks">
+        /// Demolition: every generic block the blast touches is broken COMPLETELY - all of its shards,
+        /// not just the ones in range, and regardless of their HP. Blocks otherwise go in two stages:
+        /// the blast breaks what it can reach, and the game's support check (TopOnHit.Begin_Check_Fall ->
+        /// Check_Fallen_For_Smash, fed only by shards that were actually smashed) collapses what is left
+        /// hanging - so a partly-damaged block would stand until hit again. Breaking the whole block lets
+        /// that same vanilla check bring down whatever it was holding up. Goes through
+        /// Process_Smashed_Shard with its guards ON (forceRun false), so nothing is broken mid-load or
+        /// mid-save.
+        /// </param>
+        /// <summary>Per-blast demolition tally, logged once per demolition blast (not diagnostics-gated).</summary>
+        private struct ZoneJob
+        {
+            internal Build_Info Bi;
+            internal Collider Col;
+            internal Vector3 Point;
+            internal float Damage;
+            internal float Order;    // blast batch, then distance from that blast
+            internal float Expire;
+            internal bool Sweep;     // no collider: find the shard pieces left at Point and hit those
+            internal bool Demolish;  // demolition: after cutting a cell, run its second stage too
+            internal int Stage;      // demolition follow-ups on cell ChildIndex: 2 = break the cut cell, 3 = clear its leftovers
+            internal int ChildIndex;
+            internal int Tries;
+            internal bool Collapse;   // unsupported section brought down by the support check: no loot (vanilla collapses pay none)
+        }
+
+        private static readonly List<ZoneJob> ZoneQueue = new List<ZoneJob>();
+        private static int _zoneBatch;
+        private static bool _zoneSorted = true;
+        private static bool _zoneYield;
+
+        /// <summary>
+        /// Called from Plugin.Update: hands queued zone-wall hits to the game one at a time, each as soon as
+        /// the previous slice has finished (_corSlice null; the shard path also waits out furniture
+        /// spawning). Walls come apart outward from the blast over a moment instead of only the first cell.
+        /// </summary>
+        internal static void TickZoneQueue()
+        {
+            if (ZoneQueue.Count == 0)
+            {
+                return;
+            }
+            Smash_Fallen_Manager smash = Smash_Fallen_Manager.ins;
+            if (smash == null)
+            {
+                return;
+            }
+            if (!_zoneSorted)
+            {
+                ZoneQueue.Sort((a, b) => a.Order.CompareTo(b.Order));
+                _zoneSorted = true;
+            }
+            int budget = 6;
+            ExplosionDrops.Scope++;
+            try
+            {
+                _zoneYield = false;
+                while (ZoneQueue.Count > 0 && budget-- > 0 && smash._corSlice == null && !_zoneYield)
+                {
+                    ZoneJob job = ZoneQueue[0];
+                    ZoneQueue.RemoveAt(0);
+                    if (job.Bi == null || Time.time > job.Expire)
+                    {
+                        continue;
+                    }
+                    _zoneLastRun = Time.time;
+                    try
+                    {
+                        RunZoneJob(smash, job);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Plugin.Log.LogWarning($"[Explosion] zone hit on '{job.Bi.name}' threw: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                ExplosionDrops.Scope--;
+            }
+            if (ZoneQueue.Count == 0)
+            {
+                LogDemolitionQueueDone();
+            }
+            else if (Time.time - _zoneLastRun > 5f && Time.time > _zoneStallLogged + 10f)
+            {
+                // Diagnostic: the queue has work but nothing has run for 5 s - say what it's waiting on.
+                _zoneStallLogged = Time.time;
+                ZoneJob head = ZoneQueue[0];
+                bool furni = Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>();
+                Plugin.Log.LogInfo($"[Demolition] queue stalled: {ZoneQueue.Count} job(s), cutting slot {(smash._corSlice == null ? "free" : "busy")}, " +
+                                   $"furniture spawning {furni}, next job stage {head.Stage} tries {head.Tries} on '{(head.Bi != null ? head.Bi.name : "?")}'.");
+            }
+        }
+
+        private static float _zoneLastRun, _zoneStallLogged;
+
+        private static readonly Collider[] SweepBuffer = new Collider[64];
+
+        /// <summary>
+        /// One queued zone-wall hit, checked against the wall as it is NOW - a queued collider can have
+        /// been sliced by an earlier hit in the meantime.
+        ///  - A shard piece (tag ZoneSlice, parent named with its cell index - the game int.Parse()s it):
+        ///    the shard path.
+        ///  - A ZoneSlice collider whose parent is NOT a number: its cell was cut up since it was queued;
+        ///    that collider is no longer something the game can hit. Sweep for the real shards instead.
+        ///  - A whole cell: the cell path, and for demolition a follow-up sweep of whatever shards the cut
+        ///    leaves standing (they would otherwise hold the structure up - "the pillar took several blasts").
+        /// </summary>
+        private static void RunZoneJob(Smash_Fallen_Manager smash, ZoneJob job)
+        {
+            ExplosionDrops.MarkRecent(job.Bi.gameObject, job.Point);
+            if (job.Demolish || job.Stage > 0)
+            {
+                FastDemolitionSlicing.ActiveUntil = Time.time + 25f;   // covers the collapse that follows
+                DemolitionWindowUntil = Mathf.Max(DemolitionWindowUntil, Time.time + 45f);
+            }
+            if (job.Stage > 0)
+            {
+                RunDemolishStage(smash, job);
+                return;
+            }
+            if (job.Sweep)
+            {
+                int n = Physics.OverlapSphereNonAlloc(job.Point, 0.9f, SweepBuffer, ~0, QueryTriggerInteraction.Ignore);
+                int added = 0;
+                for (int i = 0; i < n && added < 24; i++)
+                {
+                    Collider c = SweepBuffer[i];
+                    if (c == null || !c.CompareTag("ZoneSlice") || !IsShardPiece(c) || c.GetComponentInParent<Build_Info>() != job.Bi)
+                    {
+                        continue;
+                    }
+                    ZoneQueue.Insert(0, new ZoneJob
+                    {
+                        Bi = job.Bi, Col = c, Point = SafeClosestPoint(c, job.Point), Damage = job.Damage,
+                        Order = job.Order, Expire = job.Expire,
+                    });
+                    added++;
+                }
+                return;
+            }
+
+            Collider col = job.Col;
+            if (col == null || !col.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+            if (col.CompareTag("ZoneSlice"))
+            {
+                if (!IsShardPiece(col))
+                {
+                    ZoneQueue.Insert(0, new ZoneJob { Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order, Expire = job.Expire, Sweep = true });
+                    return;
+                }
+                if (Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+                {
+                    ZoneQueue.Insert(0, job);   // the shard path waits for furniture spawning too
+                    return;
+                }
+                smash.ZoneSmash_Shard_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: true);
+                return;
+            }
+
+            int childIndex = col.transform.GetSiblingIndex();
+            if (job.Demolish && HasCutTop(smash, job.Bi, childIndex))
+            {
+                // Already pre-cut (its collider can still read as enabled): cutting again makes the game
+                // re-register the cell and throw ("same key has already been added"). Drop its pieces instead.
+                job.Stage = 2;
+                job.ChildIndex = childIndex;
+                RunDemolishStage(smash, job);
+                return;
+            }
+            smash.ZoneSmash_BI_MinusHP(job.Bi, job.Point, col, job.Damage, isFromPlayer: !job.Collapse);
+            if (job.Demolish)
+            {
+                // A zone cell breaks in two stages: the hit above only PRE-cuts it into hidden shards (the
+                // wall still stands, at "0 / 1000"); the next hit on one of those shards is what shows them,
+                // drops the loose ones and runs the structure's fall check. Do that straight away - at the
+                // front of the queue, so each cell finishes before the next one starts.
+                ZoneQueue.Insert(0, new ZoneJob
+                {
+                    Bi = job.Bi, Point = job.Point, Damage = job.Damage, Order = job.Order - 0.0001f,
+                    Expire = Time.time + 60f, Stage = 2, ChildIndex = childIndex, Collapse = job.Collapse,
+                });
+                _zoneSorted = false;
+            }
+        }
+
+        private static readonly List<Collider> StageShards = new List<Collider>();
+
+        /// <summary>
+        /// Demolition follow-ups for one cut cell, found through the game's own record of it
+        /// (_BIsibling2SilceTop[building][cell] = the parent of the cell's shards) rather than a physics
+        /// search. Stage 2 hits one shard - the game's second stage for the whole cell. Stage 3 breaks
+        /// every shard still standing, a handful per turn.
+        /// </summary>
+        private static void RunDemolishStage(Smash_Fallen_Manager smash, ZoneJob job)
+        {
+            // Only the vanilla shard path (support check off) needs to wait out furniture spawning - the fast
+            // finish calls the cut directly. Near a big POI that spawning runs almost constantly, and waiting
+            // on it stalled the whole queue.
+            if (!Plugin.BuildingSupportCheck.Value && Time.time < job.Expire - 50f &&
+                Traverse.Create(smash).Field("_sysHouseMgr").Field("_inSpawningFurni").GetValue<bool>())
+            {
+                _zoneYield = true;
+                ZoneQueue.Insert(0, job);
+                return;
+            }
+            var tops = Traverse.Create(smash).Field("_BIsibling2SilceTop").GetValue<Dictionary<Transform, Dictionary<int, Transform>>>();
+            Transform sliceTop = null;
+            if (tops == null || !tops.TryGetValue(job.Bi.transform, out var cells) || !cells.TryGetValue(job.ChildIndex, out sliceTop) || sliceTop == null)
+            {
+                if (job.Stage == 2 && job.Tries < 20)
+                {
+                    Requeue(job);   // the pre-cut hasn't registered yet
+                }
+                else
+                {
+                    _st2NoCut++;
+                }
+                return;             // stage 3: the cell is already gone completely
+            }
+            StageShards.Clear();
+            for (int i = 0; i < sliceTop.childCount; i++)
+            {
+                Transform t = sliceTop.GetChild(i);
+                if (t.gameObject.activeInHierarchy && t.CompareTag("ZoneSlice") && t.TryGetComponent(out MeshCollider mc) && mc.enabled)
+                {
+                    StageShards.Add(mc);
+                }
+            }
+            if (StageShards.Count == 0)
+            {
+                if (job.Stage == 2 && job.Tries < 20)
+                {
+                    Requeue(job);   // shards get their colliders at the end of the async cut
+                }
+                else
+                {
+                    _st2NoShards++;
+                }
+                return;
+            }
+            {
+                // Nearest shard to the charge.
+                Collider best = StageShards[0];
+                float bestD = float.MaxValue;
+                foreach (Collider c in StageShards)
+                {
+                    float d = (c.bounds.center - job.Point).sqrMagnitude;
+                    if (d < bestD)
+                    {
+                        bestD = d;
+                        best = c;
+                    }
+                }
+                // Every OTHER shard drops right now, through the game's own Fall_Shard (rigidbody, ground
+                // debris, cleanup, knocks down furniture resting on it). Left to the second stage, shards
+                // touching a still-standing neighbour cell count as "edge" pieces and stay put - so the cell
+                // the charge sits on, whose neighbours are all intact at that moment, was the LAST to go.
+                if (Plugin.BuildingSupportCheck.Value && FinishCellFast(smash, job, StageShards))
+                {
+                    _st2Done++;
+                    return;
+                }
+                foreach (Collider c in StageShards)
+                {
+                    if (c != best)
+                    {
+                        DropShard(smash, (MeshCollider)c, job.Bi, !job.Collapse);
+                        _st2Dropped++;
+                    }
+                }
+                // Then the second stage on the last one: shows/fractures it, pays the cell's resources, and
+                // with the cell now empty its own tidy-up marks it fully gone in the save (hasShardsLeft 0)
+                // and runs the structure's fall check.
+                smash.ZoneSmash_Shard_MinusHP(job.Bi, best.bounds.center, best, job.Damage, isFromPlayer: !job.Collapse);
+                _st2Done++;
+            }
+        }
+
+        private static int _st2Done, _st2Dropped, _st2NoCut, _st2NoShards;
+
+        private static void LogDemolitionQueueDone()
+        {
+            if (_st2Done + _st2NoCut + _st2NoShards == 0)
+            {
+                return;
+            }
+            Plugin.Diag($"[Demolition] wall cutting finished: {_st2Done} section(s) broken ({_st2Dropped} pieces dropped), " +
+                               $"{_st2NoCut} never got cut, {_st2NoShards} cut but had no pieces to drop.");
+            _st2Done = _st2Dropped = _st2NoCut = _st2NoShards = 0;
+        }
+
+        private static System.Reflection.MethodInfo _fallShard;
+
+        private static void DropShard(Smash_Fallen_Manager smash, MeshCollider mc, Build_Info zoneBI, bool fromPlayer)
+        {
+            try
+            {
+                if (_fallShard == null)
+                {
+                    _fallShard = AccessTools.Method(typeof(Smash_Fallen_Manager), "Fall_Shard");
+                }
+
+                // Pre-cut shards are hidden until the second stage shows them.
+                if (mc.TryGetComponent(out MeshRenderer mr))
+                {
+                    mr.enabled = true;
+                }
+                Slice_Shard_Connect connect = mc.gameObject.GetComponent<Slice_Shard_Connect>() ?? mc.gameObject.AddComponent<Slice_Shard_Connect>();
+                connect._MC = mc;
+                _fallShard.Invoke(smash, new object[] { connect, zoneBI, fromPlayer });
+                UnityEngine.Object.Destroy(connect);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] dropping a wall piece threw: " + (ex.InnerException ?? ex).Message);
+            }
+        }
+
+        private static System.Reflection.MethodInfo _sliceZone, _realZonePos, _hpMod;
+
+        /// <summary>
+        /// The game's second stage for a cut cell (ZoneSmash_Shard_MinusHP's "cell at 0 HP" branch, Build_System
+        /// :19699-19711) minus its LOCAL fall check. That check slices whole columns above, one section at a time,
+        /// holding the game's single cutting slot (_corSlice) the whole while - every other queued section waited
+        /// behind it: 1-2 minutes per blast for a handful of sections. With the building support check on, the
+        /// whole-building check does the structural collapse instead, once the cutting is done.
+        /// Drops every shard of the cell, then Slice_Zone(afterPreSmashHit, !hitSliceShard, checkFallen:false):
+        /// hides the cell, records it as smashed in the save, pays its resources, plays its sound.
+        /// Returns false (caller falls back to the vanilla path) if anything it needs isn't there.
+        /// </summary>
+        private static bool FinishCellFast(Smash_Fallen_Manager smash, ZoneJob job, List<Collider> shards)
+        {
+            bool dropped = false;
+            try
+            {
+                if (_sliceZone == null)
+                {
+                    _sliceZone = AccessTools.Method(typeof(Smash_Fallen_Manager), "Slice_Zone");
+                    _realZonePos = AccessTools.Method(typeof(Smash_Fallen_Manager), "Get_RealZonePosRound");
+                    _hpMod = AccessTools.Method(typeof(Smash_Fallen_Manager), "Get_HP_Mod");
+                }
+                if (_sliceZone == null || _realZonePos == null || _hpMod == null || job.ChildIndex >= job.Bi.transform.childCount)
+                {
+                    return false;
+                }
+                Transform cell = job.Bi.transform.GetChild(job.ChildIndex);
+                if (!cell.TryGetComponent(out MeshCollider cellMc) || !cell.TryGetComponent(out MeshFilter cellMf))
+                {
+                    return false;
+                }
+                object[] posArgs = { cellMc, null, null };
+                if (!(bool)_realZonePos.Invoke(smash, posArgs))
+                {
+                    return false;
+                }
+                Vector3Int posRound = (Vector3Int)posArgs[1];
+                Vector3 pos = (Vector3)posArgs[2];
+                Traverse tr = Traverse.Create(smash);
+                Vector3 origin = tr.Field("_buildInit").Field("world_Origin_Neutralized").GetValue<Vector3>();
+                float sliceSize = tr.Field("_SliceSize").GetValue<float>();
+                float cellHp = job.Bi._soundObj.SoundMat._HP_ZoneSmashBI * (float)_hpMod.Invoke(smash, new object[] { job.Bi, cellMc });
+                // The pre-cut left this cell's HP entry at 0; the second stage clears it (as vanilla does).
+                object hps = tr.Field("_zoneData").Field("_zoneHPs").GetValue();
+                (hps as System.Collections.IDictionary)?.Remove(posRound);
+
+                dropped = true;
+                foreach (Collider c in shards)
+                {
+                    DropShard(smash, (MeshCollider)c, job.Bi, !job.Collapse);
+                    _st2Dropped++;
+                }
+                // Record it as fully gone BEFORE the cut runs (which only adds a record if none exists) - left
+                // to the game it stays "pieces left" and gets pointlessly re-cut on every load (ZoneSaveFix).
+                ZoneSaveFix.MarkGone(smash, job.Bi, posRound, job.ChildIndex, sliceSize);
+                _sliceZone.Invoke(smash, new object[]
+                {
+                    job.Bi, cellMf, cellMc, pos + origin, posRound, job.ChildIndex,
+                    false,            // isPreSmash
+                    true,             // afterPreSmashHit
+                    false,            // hitSliceShard: the cell's own break (records it, pays loot)
+                    false,            // checkFallen: the building support check does this, once, for the whole building
+                    sliceSize, null, !job.Collapse, cellHp,
+                });
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] fast cell finish failed" + (dropped ? " after dropping its pieces: " : ", using the game's own: ") + (ex.InnerException ?? ex).Message);
+                return dropped;   // pieces already gone: nothing left for the vanilla path to hit
+            }
+        }
+
+        private static bool HasCutTop(Smash_Fallen_Manager smash, Build_Info bi, int childIndex)
+        {
+            var tops = Traverse.Create(smash).Field("_BIsibling2SilceTop").GetValue<Dictionary<Transform, Dictionary<int, Transform>>>();
+            return tops != null && tops.TryGetValue(bi.transform, out var cells) && cells.TryGetValue(childIndex, out Transform t) && t != null;
+        }
+
+        private static void Requeue(ZoneJob job)
+        {
+            job.Tries++;
+            _zoneYield = true;   // try again next frame, not six times in this one
+            ZoneQueue.Insert(job.Stage == 3 ? ZoneQueue.Count : 0, job);
+        }
+
+        /// <summary>
+        /// Collider.ClosestPoint for any collider. Unity doesn't support it on a NON-convex MeshCollider and just
+        /// returns the query point - every zone-wall cell then measured 0.00 m from the charge, so "nearest first"
+        /// was random and the core radius filtered nothing (the planted cell came down late). Those use the
+        /// closest point of their bounds instead.
+        /// </summary>
+        internal static Vector3 SafeClosestPoint(Collider c, Vector3 p)
+        {
+            if (c is MeshCollider mc && !mc.convex)
+            {
+                return c.bounds.ClosestPoint(p);
+            }
+            return c.ClosestPoint(p);
+        }
+
+        /// <summary>A real shard piece: ZoneSmash_Shard_MinusHP int.Parse()s its parent's name as the cell index.</summary>
+        private static bool IsShardPiece(Collider c)
+        {
+            Transform parent = c.transform.parent;
+            return parent != null && parent.parent != null && parent.parent.parent != null &&
+                   int.TryParse(parent.name, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out _);
+        }
+
+        private static readonly Dictionary<string, int> _demoReasons = new Dictionary<string, int>();
+        private static readonly List<(Battle_Info Piece, float GiveUpAt)> Deferred = new List<(Battle_Info, float)>();
+        private static float _nextDeferredTry;
+        private static int _deferredDone;
+
+        private static int _demoHouseBlocks, _demoBlocks, _demoShardsBroken, _demoShardsRefused, _demoWalls, _demoZoneCells;
+
+        internal static int ApplyToBuildables(Vector3 center, float radius, float damage, bool wholeBlocks = false)
+        {
+            _demoReasons.Clear();
+            _demoHouseBlocks = _demoBlocks = _demoShardsBroken = _demoShardsRefused = _demoWalls = _demoZoneCells = 0;
+            int result;
+            ExplosionDrops.Scope++;   // resources knocked loose land on the ground
+            try
+            {
+                result = ApplyToBuildablesCore(center, radius, damage, wholeBlocks);
+            }
+            finally
+            {
+                ExplosionDrops.Scope--;
+            }
+            if (wholeBlocks)
+            {
+                Plugin.Log.LogInfo($"[Demolition] {_demoBlocks} block(s) ({_demoHouseBlocks} of them world-building): {_demoShardsBroken} shard(s) broken, " +
+                                   $"{_demoShardsRefused} refused by the game (loading/saving/furniture guard); " +
+                                   $"{_demoWalls} big wall(s) destroyed, {_demoZoneCells} zone cell(s) queued to break." +
+                                   (_demoReasons.Count > 0 ? " Refused because: " + string.Join(", ", ReasonList()) + "." : "") +
+                                   (Deferred.Count > 0 ? $" {Deferred.Count} queued to retry." : ""));
+                if (_verifyPass == 0)
+                {
+                    ScheduleClearance(center, damage);
+                }
+            }
+            return result;
+        }
+
+        // ---- Blanket clearance --------------------------------------------------------------------------
+        // Demolition is judged by the END STATE, not by per-type bookkeeping: the game has several separate
+        // destruction systems (block shards, furniture, zone-wall cells and their cut pieces, big walls), and
+        // the same block can need a different one depending on its state that frame (pieces not spawned yet,
+        // cut but not dropped, furniture not "coded", a slice already running). So after the blast, the core
+        // (DemoCoreRadius around the charge) is swept again a few times with the full dispatch - whatever is
+        // still standing there, in whatever state it is NOW, gets the right treatment - and the last sweep
+        // logs anything that survived all of them, by type.
+
+        private static readonly float[] ClearanceDelays = { 0.5f, 2.5f, 6f };
+        private static readonly List<(Vector3 Center, float Damage, float At, int Pass, float WaitUntil)> Clearances = new List<(Vector3, float, float, int, float)>();
+        private static int _verifyPass;
+
+        private static void ScheduleClearance(Vector3 center, float damage)
+        {
+            Clearances.Add((center, damage, Time.time + ClearanceDelays[0], 1, Time.time + 25f));
+        }
+
+        /// <summary>Called from Plugin.Update (via TickDeferred).</summary>
+        private static void TickClearance()
+        {
+            for (int i = Clearances.Count - 1; i >= 0; i--)
+            {
+                var c = Clearances[i];
+                if (Time.time < c.At)
+                {
+                    continue;
+                }
+                Clearances.RemoveAt(i);
+                // Wait while the charge's own wall cutting is still queued - sweeping then would only
+                // re-queue what is already on its way down.
+                if (ZoneQueue.Count > 0 && Time.time < c.WaitUntil)
+                {
+                    Clearances.Add((c.Center, c.Damage, Time.time + 0.5f, c.Pass, c.WaitUntil));
+                    continue;
+                }
+                _verifyPass = c.Pass;
+                try
+                {
+                    int standing = CountStanding(c.Center, out string what);
+                    if (standing == 0)
+                    {
+                        Plugin.Diag($"[Demolition] clearance pass {c.Pass}: the charge's core is clear.");
+                        continue;
+                    }
+                    Plugin.Diag($"[Demolition] clearance pass {c.Pass}: {standing} thing(s) still standing in the core ({what}) - hitting again.");
+                    ApplyToBuildables(c.Center, Plugin.DemoCoreRadius.Value, c.Damage, wholeBlocks: true);
+                    if (c.Pass < ClearanceDelays.Length)
+                    {
+                        Clearances.Add((c.Center, c.Damage, Time.time + ClearanceDelays[c.Pass] - ClearanceDelays[c.Pass - 1], c.Pass + 1, Time.time + 25f));
+                    }
+                    else
+                    {
+                        LogWhatTheChargeSitsOn(c.Center, Physics.OverlapSphere(c.Center, Plugin.DemoCoreRadius.Value, StructureMask(), QueryTriggerInteraction.Ignore));
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning("[Demolition] clearance pass threw: " + ex);
+                }
+                finally
+                {
+                    _verifyPass = 0;
+                }
+            }
+        }
+
+        private static int StructureMask()
+        {
+            Global_Infos g = Global_Infos.ins;
+            return g == null ? 0 : g.Mask_Build.value | g.Mask_Battle.value | g.Mask_Scene.value;
+        }
+
+        /// <summary>Solid, still-standing structure colliders in the core, grouped by what they are.</summary>
+        private static int CountStanding(Vector3 center, out string what)
+        {
+            var byType = new Dictionary<string, int>();
+            int n = 0;
+            foreach (Collider c in Physics.OverlapSphere(center, Plugin.DemoCoreRadius.Value, StructureMask(), QueryTriggerInteraction.Ignore))
+            {
+                if (c == null || !c.enabled || c.GetComponent<Rigidbody>() != null)
+                {
+                    continue;   // falling pieces are on their way already
+                }
+                Build_Info bi = c.GetComponentInParent<Build_Info>();
+                if (bi == null || bi._Type == Build_Info.Type.TerrainTreeBI || bi._ItemType == Build_Info.ItemType.GroundDebris ||
+                    bi._ItemType == Build_Info.ItemType.SysHouseGrass)
+                {
+                    continue;
+                }
+                Battle_Info piece = c.GetComponent<Battle_Info>();
+                if (piece != null && (piece.Smashed || piece.Is_Fallen))
+                {
+                    continue;
+                }
+                string key = IsShardPiece(c) ? "cut wall piece" : $"{bi._Type}/{bi._ItemType}";
+                byType[key] = (byType.TryGetValue(key, out int k) ? k : 0) + 1;
+                n++;
+            }
+            what = string.Join(", ", byType.Select(kv => $"{kv.Key} x{kv.Value}"));
+            return n;
+        }
+
+        /// <summary>A demolition charge went off recently (its collapse can run on for a while after).</summary>
+        internal static float DemolitionWindowUntil;
+
+        /// <summary>
+        /// Diagnostic, one line per demolition blast: the three structure colliders nearest the charge -
+        /// what "the block the charge is on" actually is to the game.
+        /// </summary>
+        private static void LogWhatTheChargeSitsOn(Vector3 center, Collider[] cols)
+        {
+            try
+            {
+                var near = new List<(float D, Collider C)>();
+                foreach (Collider c in cols)
+                {
+                    if (c != null && c.GetComponentInParent<Build_Info>() != null)
+                    {
+                        near.Add(((SafeClosestPoint(c, center) - center).magnitude, c));
+                    }
+                }
+                near.Sort((a, b) => a.D.CompareTo(b.D));
+                var parts = new List<string>();
+                for (int i = 0; i < near.Count && i < 3; i++)
+                {
+                    Collider c = near[i].C;
+                    Build_Info bi = c.GetComponentInParent<Build_Info>();
+                    Battle_Info piece = c.GetComponent<Battle_Info>();
+                    parts.Add($"{near[i].D:F2}m '{c.name}' tag={c.tag} layer={c.gameObject.layer} enabled={c.enabled} " +
+                              $"block='{bi.name}' {bi._Type}/{bi._ItemType} spawnedPieces={bi.Spawned_BaIs.Count}" +
+                              (piece != null ? $" piece(smashed={piece.Smashed}, fallen={piece.Is_Fallen})" : "") +
+                              (IsShardPiece(c) ? " [cut shard]" : ""));
+                }
+                Plugin.Diag("[Demolition] nearest to the charge: " + (parts.Count == 0 ? "nothing built" : string.Join(" | ", parts)));
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogInfo("[Demolition] nearest-block probe threw: " + ex.Message);
+            }
+        }
+
+        private static int ApplyToBuildablesCore(Vector3 center, float radius, float damage, bool wholeBlocks)
+        {
+            _zoneBatch++;
+            _zoneLastRun = Time.time;
+            _zoneSorted = false;
+            Smash_Fallen_Manager smashMgr = Smash_Fallen_Manager.ins;
+            Global_Infos globalInfos = Global_Infos.ins;
+            if (smashMgr == null || globalInfos == null)
+            {
+                return 0;
+            }
+
+            // A grenade shouldn't care what a structure is named or which specific layer its
+            // collider happens to sit on (Build for most buildables, Battle for already-spawned
+            // shard pieces, Scene for some static/pre-built structures) - damage needs to reach
+            // anything destructible nearby, so the sweep uses the union of all three instead of
+            // Mask_Build alone.
+            int combinedMask = globalInfos.Mask_Build.value | globalInfos.Mask_Battle.value | globalInfos.Mask_Scene.value;
+            if (wholeBlocks && _verifyPass == 0)
+            {
+                WakeTrees(center, radius);   // terrain trees become breakable objects only when woken
+            }
+            Collider[] hitColliders = Physics.OverlapSphere(center, radius, combinedMask, QueryTriggerInteraction.Ignore);
+            if (wholeBlocks)
+            {
+                DemolitionWindowUntil = Time.time + 45f;
+                LogWhatTheChargeSitsOn(center, hitColliders);
+            }
+            var directlyFoundColliders = new HashSet<Collider>(hitColliders);
+            var processedBuildInfos = new HashSet<Build_Info>();
+            var alreadyHitPieces = new HashSet<Battle_Info>();
+            int hits = 0;
+
+            // Battle_Info.MinusHP() ONLY decrements an internal HP counter - it never checks
+            // whether that reached zero, so calling it alone (as this method always did before)
+            // left every hit piece fully intact and visually/functionally unchanged no matter how
+            // many times it was "hit". Vanilla TopOnHit.One_Shot_Through checks BEFORE calling
+            // MinusHP: if the incoming damage would meet or exceed the piece's remaining HP
+            // (FatherBI.BaIs_HP_Lefts[nameIndex]), it calls TopOnHit.Process_Smashed_Shard instead
+            // - the actual method that breaks/pools/removes the piece. Process_Smashed_Shard is a
+            // public instance method (not static) with no obvious per-weapon binding of its own
+            // (its dependencies - Init.ins, layer masks - are all global singletons cached at
+            // Awake), so any live TopOnHit in the scene works identically for this purpose.
+            TopOnHit topOnHit = UnityEngine.Object.FindObjectOfType<TopOnHit>();
+            if (topOnHit == null && Plugin.EnableDiagnostics.Value)
+            {
+                Plugin.Log.LogWarning("[Explosion] No TopOnHit instance found in scene - lethal hits will only decrement HP, not actually destroy pieces.");
+            }
+
+            if (Plugin.EnableDiagnostics.Value)
+            {
+                Plugin.Log.LogInfo($"[Explosion] buildable sweep: {hitColliders.Length} collider(s) on Build|Battle|Scene layers within {radius}m.");
+                foreach (Collider col in hitColliders)
+                {
+                    Build_Info bi = col.GetComponentInParent<Build_Info>();
+                    Battle_Info piece = col.GetComponentInParent<Battle_Info>();
+                    string biDetail = bi != null ? $"{bi.name} (Type={bi._Type}, ItemType={bi._ItemType})" : "NONE";
+                    Plugin.Log.LogInfo($"[Explosion]   collider '{col.name}' (layer={LayerMask.LayerToName(col.gameObject.layer)}) -> Build_Info={biDetail}, Battle_Info(parent-search)={(piece != null ? piece.name : "NONE")}");
+
+                    // AB_Pool's numbered colliders find a Build_Info via parent-search but not a
+                    // Battle_Info, unlike every other structure tested (Cardboard/Ivy/MetalBoxes) -
+                    // print the exact hierarchy so we can see structurally where the disconnect is,
+                    // rather than guessing again.
+                    if (bi != null && piece == null)
+                    {
+                        var pathParts = new System.Collections.Generic.List<string>();
+                        Transform t = col.transform;
+                        int depth = 0;
+                        while (t != null && depth < 10)
+                        {
+                            bool hasBattleInfo = t.GetComponent<Battle_Info>() != null;
+                            bool hasBuildInfo = t.GetComponent<Build_Info>() != null;
+                            pathParts.Add($"{t.name}[BattleInfo={hasBattleInfo},BuildInfo={hasBuildInfo},layer={LayerMask.LayerToName(t.gameObject.layer)}]");
+                            t = t.parent;
+                            depth++;
+                        }
+                        Plugin.Log.LogInfo($"[Explosion]     hierarchy (self->up): {string.Join(" -> ", pathParts)}");
+                    }
+                }
+
+                // ALL colliders regardless of layer/mask - a one-off wide sweep purely to find out
+                // what a stubborn structure (never once appearing in the Mask_Build-only sweep
+                // above even at point-blank range) actually looks like to the physics system: what
+                // layer it's really on, and whether it even has a Build_Info at all vs. some other
+                // door/structure component entirely.
+                Collider[] everyCollider = Physics.OverlapSphere(center, radius, ~0, QueryTriggerInteraction.Ignore);
+                Plugin.Log.LogInfo($"[Explosion] wide sweep (ALL layers): {everyCollider.Length} collider(s) within {radius}m.");
+                foreach (Collider col in everyCollider)
+                {
+                    Build_Info bi = col.GetComponentInParent<Build_Info>();
+                    string biDetail = bi != null ? $"{bi.name} (Type={bi._Type}, ItemType={bi._ItemType})" : "none";
+                    Plugin.Log.LogInfo($"[Explosion]   [wide] '{col.name}' (layer={LayerMask.LayerToName(col.gameObject.layer)}) Build_Info={biDetail}");
+                }
+            }
+
+            foreach (Collider col in hitColliders)
+            {
+                // Prefer a direct Battle_Info hit over deriving the owner via
+                // GetComponentInParent<Build_Info>(): the collider intersecting our OverlapSphere
+                // is itself proof of being in range (no need to recheck via a piece's
+                // bounds-center distance, which can wrongly reject a large/oddly-shaped piece),
+                // and Battle_Info.FatherBI is the authoritative owner set directly at spawn time.
+                // This matters because for at least one real structure (a ZoneSmashBI-type "wall"
+                // internally named AB_Pool) GetComponentInParent<Build_Info> on an
+                // already-spawned piece's collider returned a Build_Info whose OWN Spawned_BaIs
+                // list was empty - a mismatched ancestor, not the true owner - so every piece was
+                // silently skipped despite clearly existing, being active, and being in range.
+                Battle_Info directPiece = col.GetComponentInParent<Battle_Info>();
+                // Never touch a block the game is still PLACING (its deploy coroutine is mid-way: rubble landing
+                // from a collapse, a player build). Breaking it pulls its renderer out from under
+                // Build_System.To_Deploy_Object, which then throws and leaves the game's build lock stuck.
+                Build_Info owner = directPiece != null && directPiece.FatherBI != null ? directPiece.FatherBI : col.GetComponentInParent<Build_Info>();
+                if (owner != null && owner.top_Info != null && owner.top_Info.Is_Detecting_Battles)
+                {
+                    continue;
+                }
+                // A collapse's own rubble: demolishing it again is pointless and races its placement. World
+                // rubble piles (scene props, e.g. Concrete_Debris_Big_*) are GroundDebris too but must take
+                // damage like any structure (user 2026-09-28: "charges should damage everything").
+                if (wholeBlocks && owner != null && owner._ItemType == Build_Info.ItemType.GroundDebris && owner._Type != Build_Info.Type.ScenePropBI)
+                {
+                    continue;
+                }
+                if (wholeBlocks && owner != null && owner._Type == Build_Info.Type.TerrainTreeBI)
+                {
+                    continue;   // trees get their own smash a moment later (TickTreePasses) - see TreeWake
+                }
+                if (wholeBlocks && directPiece != null && directPiece.FatherBI != null && !IsRailwayPiece(directPiece.FatherBI) &&
+                    directPiece.FatherBI._ItemType != Build_Info.ItemType.ZoneSmashBI &&
+                    directPiece.FatherBI._ItemType != Build_Info.ItemType.SysHouseBigWall)
+                {
+                    if (processedBuildInfos.Add(directPiece.FatherBI))
+                    {
+                        hits += SmashWholeBlock(directPiece.FatherBI, topOnHit, alreadyHitPieces);
+                    }
+                    continue;
+                }
+                if (directPiece != null)
+                {
+                    if (!directPiece.Is_Fallen && !directPiece.Smashed && alreadyHitPieces.Add(directPiece))
+                    {
+                        if (DamagePiece(directPiece, damage, topOnHit, "direct"))
+                        {
+                            hits++;
+                        }
+                    }
+                    continue;
+                }
+
+                // No already-spawned piece on this collider - it's either a structure that hasn't
+                // had Spawn_BaIs_Under_BI run yet (its own outer Build_Info collider still active),
+                // a SysHouseBigWall (which never spawns per-piece shards at all), or a ZoneSmashBI
+                // cell (HP tracked per-COLLIDER, not per-Build_Info - see below).
+                Build_Info buildInfo = col.GetComponentInParent<Build_Info>();
+                if (buildInfo == null)
+                {
+                    continue;
+                }
+
+                // ZoneSmashBI is a fourth damage path, distinct from the two below and from the
+                // generic Battle_Info system - confirmed real via a live axe test (a ZoneSmashBI
+                // wall's "80/80" HP bar, driven by this exact method's
+                // UI_Control.ins.Show_Target_Block_HP_Bar call, visibly went to 0 and the structure
+                // collapsed) after Battle_Info.MinusHP/Process_Smashed_Shard NEVER fired for it
+                // despite clean hit feedback. HP here is tracked per-CELL in a private dictionary
+                // (_zoneData._zoneHPs) keyed off a registered child collider (Get_RealZonePosRound
+                // looks the collider up in a private _child2ZoneLoPos map) - so unlike the other
+                // paths this is deliberately NOT deduped by Build_Info (processedBuildInfos): a
+                // multi-cell structure like a big wall has many independently-damageable cells, and
+                // an earlier attempt at this exact method was judged "broken" from a reflection
+                // probe that returned false, almost certainly because it was called with the wrong
+                // collider rather than because the method itself doesn't work - THIS collider
+                // (`col`) is the literal one our own OverlapSphere sweep found intersecting the
+                // structure, so it should be the one the registered mapping actually expects.
+                if (buildInfo._ItemType == Build_Info.ItemType.ZoneSmashBI)
+                {
+                    // Confirmed via a live axe test + a stack-trace probe on the HP bar UI method:
+                    // a ZoneSmashBI cell that's ALREADY been partially sliced from earlier damage
+                    // is tracked as a separate fragment shard (its own HP in a different private
+                    // dictionary, _shard_HP, keyed by collider) and needs ZoneSmash_Shard_MinusHP
+                    // instead - calling ZoneSmash_BI_MinusHP on it is a silent no-op (its internal
+                    // Get_RealZonePosRound lookup doesn't recognize a shard collider). Vanilla
+                    // (TopOnHit.Hit_ZoneSmash_House) picks between the two with exactly this tag
+                    // check.
+                    // Queued, not called here: the game only actually slices a cell when no slice is already
+                    // running (Smash_Fallen_Manager._corSlice == null, Build_System ZoneSmash_*_MinusHP). Dozens of
+                    // calls in one frame zeroed every cell's HP but sliced ONE - the wall stood until hammered.
+                    // TickZoneQueue feeds them one at a time, nearest first. Hit point = the closest point on the
+                    // cell's own collider, as a real hit would report, not the blast centre.
+                    Vector3 hitPoint = SafeClosestPoint(col, center);
+                    // Demolition cuts only the cells close to the charge: each cut is a multi-frame slice,
+                    // run one at a time, so the whole 6 m radius (~200 cells) took many seconds. The rest of
+                    // the structure comes down through the game's own fall check once the supports go.
+                    if (wholeBlocks && Vector3.Distance(center, hitPoint) > Plugin.DemoCoreRadius.Value)
+                    {
+                        continue;
+                    }
+                    ExplosionDrops.MarkRecent(buildInfo.gameObject, center);
+                    ZoneQueue.Add(new ZoneJob
+                    {
+                        Bi = buildInfo,
+                        Col = col,
+                        Point = hitPoint,
+                        Damage = wholeBlocks ? 1000000f : damage,
+                        // Nearest to ITS charge first, across all charges - not one blast's cells after another's.
+                        // (Ties - the charge inside several cells' bounds - go to the cell whose middle is nearest.)
+                        Order = Vector3.Distance(center, hitPoint) + 0.25f * Vector3.Distance(center, col.bounds.center) + _zoneBatch * 0.001f,
+                        Expire = Time.time + 40f,
+                        Demolish = wholeBlocks,
+                    });
+                    if (wholeBlocks)
+                    {
+                        NoteDemolished(buildInfo);
+                    }
+                    hits++;
+                    if (wholeBlocks)
+                    {
+                        _demoZoneCells++;
+                    }
+                    continue;
+                }
+
+                if (!processedBuildInfos.Add(buildInfo))
+                {
+                    continue;
+                }
+
+                // SysHouseBigWall is a third damage path, distinct from the generic Battle_Info
+                // sub-piece system below - a big pre-built structural wall tracked as ONE HP pool
+                // directly on the Build_Info itself (Shards_HP_Left), never split into individually
+                // collidable shards, so Spawn_BaIs_Under_BI/Battle_Info.MinusHP never applies to it
+                // (confirmed via decompiled TopOnHit.One_Shot_Through, which takes this exact
+                // branch for this exact ItemType instead of the generic one).
+                if (buildInfo._ItemType == Build_Info.ItemType.SysHouseBigWall)
+                {
+                    try
+                    {
+                        // Demolition: whatever the wall has left - one charge brings a big wall down.
+                        float wallDamage = wholeBlocks ? Mathf.Max(damage, buildInfo.Shards_HP_Left + 1f) : damage;
+                        float before = buildInfo.Shards_HP_Left;
+                        smashMgr.SysHouse_BigWall_MinusHP(buildInfo, wallDamage, center);
+                        hits++;
+                        if (wholeBlocks)
+                        {
+                            _demoWalls++;
+                            Plugin.Log.LogInfo($"[Demolition] big wall '{buildInfo.name}': HP {before:F0} -> {buildInfo.Shards_HP_Left:F0}.");
+                        }
+                        if (Plugin.EnableDiagnostics.Value)
+                        {
+                            Plugin.Log.LogInfo($"[Explosion] SysHouseBigWall '{buildInfo.name}': -{damage:F0} HP (Shards_HP_Left now {buildInfo.Shards_HP_Left:F0}).");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Plugin.Log.LogWarning($"[Explosion] SysHouse_BigWall_MinusHP threw for '{buildInfo.name}': {ex.Message}");
+                    }
+                    continue;
+                }
+
+                if (wholeBlocks && !IsRailwayPiece(buildInfo))
+                {
+                    hits += SmashWholeBlock(buildInfo, topOnHit, alreadyHitPieces);
+                    continue;
+                }
+
+                try
+                {
+                    smashMgr.Spawn_BaIs_Under_BI(buildInfo);
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning($"[Explosion] Spawn_BaIs_Under_BI threw for '{buildInfo.name}': {ex.Message}");
+                    continue;
+                }
+
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo($"[Explosion] '{buildInfo.name}' has {buildInfo.Spawned_BaIs.Count} Spawned_BaIs pieces total.");
+                }
+
+                int skippedNull = 0, skippedDead = 0, skippedDup = 0, skippedFar = 0;
+                foreach (Battle_Info piece in buildInfo.Spawned_BaIs)
+                {
+                    if (piece == null)
+                    {
+                        skippedNull++;
+                        continue;
+                    }
+                    if (piece.Is_Fallen || piece.Smashed)
+                    {
+                        skippedDead++;
+                        continue;
+                    }
+                    if (!alreadyHitPieces.Add(piece))
+                    {
+                        skippedDup++;
+                        continue;
+                    }
+
+                    // A piece whose OWN collider was one of the colliders Physics.OverlapSphere
+                    // itself found is confirmed in-range by the physics engine's actual geometry
+                    // test - no need to recheck via a bounds-center distance heuristic, which is
+                    // unreliable for large/sprawling meshes (a spread-out ivy vine's collision
+                    // point can be well within the blast while its overall bounds center sits
+                    // meters away, wrongly failing the recheck and silently skipping a piece the
+                    // explosion demonstrably touched). Only fall back to the heuristic for OTHER
+                    // pieces of a multi-piece structure that weren't directly found (a real
+                    // multi-piece wall can have Spawn_BaIs_Under_BI populate pieces scattered
+                    // across the whole structure, most of which genuinely aren't near this blast).
+                    bool directHit = piece.selfMeshCollider != null && directlyFoundColliders.Contains(piece.selfMeshCollider);
+                    float dist;
+                    if (directHit)
+                    {
+                        dist = Vector3.Distance(center, SafeClosestPoint(piece.selfMeshCollider, center));
+                    }
+                    else
+                    {
+                        Vector3 piecePos = piece.selfMeshRender != null ? piece.selfMeshRender.bounds.center : piece.transform.position;
+                        dist = Vector3.Distance(center, piecePos);
+                        if (dist > radius)
+                        {
+                            skippedFar++;
+                            if (Plugin.EnableDiagnostics.Value)
+                            {
+                                Plugin.Log.LogInfo($"[Explosion]   piece '{piece.name}' on '{buildInfo.name}' too far: {dist:F1}m (radius {radius:F1}m), pos={piecePos}.");
+                            }
+                            continue;
+                        }
+                    }
+
+                    if (DamagePiece(piece, damage, topOnHit, $"on '{buildInfo.name}' at {dist:F1}m"))
+                    {
+                        hits++;
+                    }
+                }
+
+                if (Plugin.EnableDiagnostics.Value)
+                {
+                    Plugin.Log.LogInfo($"[Explosion] '{buildInfo.name}' piece loop done: {skippedNull} null, {skippedDead} already fallen/smashed, {skippedDup} duplicate, {skippedFar} out of radius.");
+                }
+            }
+
+            FlushFallChecks(topOnHit);
+            return hits;
+        }
+
+        private static System.Reflection.MethodInfo _collectSmashed;
+
+        /// <summary>
+        /// What the game's own hit code does after Process_Smashed_Shard (TopOnHit:22166): if the smash left
+        /// anything needing a support check (NeedCheckTops), run it - Collect_Smashed_Groups is what actually
+        /// makes unsupported pieces, trees and blocks FALL. Smashing directly without it broke the one piece of
+        /// a tree and left the tree standing.
+        /// </summary>
+        internal static void FlushFallChecks(TopOnHit topOnHit)
+        {
+            if (topOnHit == null || topOnHit.NeedCheckTops.Count == 0)
+            {
+                return;
+            }
+            try
+            {
+                if (_collectSmashed == null)
+                {
+                    _collectSmashed = AccessTools.Method(typeof(TopOnHit), "Collect_Smashed_Groups");
+                }
+                _collectSmashed?.Invoke(topOnHit, null);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] fall check threw: " + (ex.InnerException ?? ex).Message);
+            }
+        }
+
+        private static IEnumerable<string> ReasonList()
+        {
+            foreach (KeyValuePair<string, int> kv in _demoReasons)
+            {
+                yield return $"{kv.Key} x{kv.Value}";
+            }
+        }
+
+        private static bool IsTransient(string reason) =>
+            reason.StartsWith("loading") || reason.StartsWith("saving") || reason.StartsWith("detecting");
+
+        /// <summary>
+        /// Which of Process_Smashed_Shard's guards (Build_System:22198-22276) turned a smash away - the
+        /// same checks in the same order. Private fields are read through Traverse; a missing field reads as
+        /// "not blocking" rather than throwing.
+        /// </summary>
+        private static string RefusalReason(Battle_Info piece, TopOnHit t)
+        {
+            try
+            {
+                Build_Info bi = piece.FatherBI;
+                if (bi == null) return "no owning block";
+                Traverse tr = Traverse.Create(t);
+                if (piece.gameObject.layer == tr.Field("layer_Bullet").GetValue<int>()) return "bullet layer";
+                if (piece.Belong_Group == null) return "no shard group";
+                if (bi.top_Info != null && bi.top_Info.Is_Detecting_Battles) return "detecting (block being placed)";
+                if (bi._IsFurniBI && !bi.IsCoding) return "loading (furniture data)";
+                if (bi._IsFurniBI && piece.Belong_Group != null)
+                {
+                    var groups = new List<Shards_Group> { piece.Belong_Group };
+                    var seenG = new HashSet<Shards_Group> { piece.Belong_Group };
+                    for (int g = 0; g < groups.Count && g < 3000; g++)
+                    {
+                        foreach (Shards_Group c in groups[g].Contacts)
+                        {
+                            Build_Info o = c != null ? c.BI : null;
+                            if (o != null && !o.IsCoding && o._Type == Build_Info.Type.SystemHouseBI && o._ItemType != Build_Info.ItemType.SysHouseBigWall)
+                            {
+                                return o._IsFurniBI ? "loading (connected furniture data)" : "loading (connected world-building piece)";
+                            }
+                            if (c != null && seenG.Add(c))
+                            {
+                                groups.Add(c);
+                            }
+                        }
+                    }
+                }
+                if (bi.top_Info != null && bi.top_Info.IsInLoading) return "loading (this structure)";
+                Traverse init = tr.Field("_buildInit");
+                if (init.Field("systemHouseManager").Field("InLoadingSystemHouse").GetValue<int>() > 0) return "loading (a world building nearby)";
+                if (init.Field("chunkMgr").Field("_inSavingData").GetValue<bool>()) return "saving";
+                if (tr.Field("_terraTreeMgr").Field("In_LoadTreeSpawners").GetValue<int>() > 0) return "loading (trees)";
+                return "unknown";
+            }
+            catch (System.Exception ex)
+            {
+                return "unknown (" + ex.GetType().Name + ")";
+            }
+        }
+
+        /// <summary>
+        /// Called from Plugin.Update: retries demolition smashes the game refused while something was
+        /// loading or saving, four times a second, for up to 15 s each.
+        /// </summary>
+        internal static void TickDeferred()
+        {
+            SliceWatchdog.Unstick(Smash_Fallen_Manager.ins);   // every frame: melee/bullets use the same slot
+            if (Clearances.Count > 0)
+            {
+                TickClearance();
+            }
+            TickSupport();
+            TickTreePasses();
+            if (Deferred.Count == 0 || Time.time < _nextDeferredTry)
+            {
+                return;
+            }
+            _nextDeferredTry = Time.time + 0.25f;
+            TopOnHit t = UnityEngine.Object.FindObjectOfType<TopOnHit>();
+            if (t == null)
+            {
+                return;
+            }
+            for (int i = Deferred.Count - 1; i >= 0; i--)
+            {
+                Battle_Info piece = Deferred[i].Piece;
+                if (piece == null || piece.Smashed || piece.Is_Fallen)
+                {
+                    Deferred.RemoveAt(i);
+                    continue;
+                }
+                string why = RefusalReason(piece, t);
+                if (why.Contains("furniture"))
+                {
+                    EnsureFurnitureCoded(piece.FatherBI);
+                    why = RefusalReason(piece, t);
+                }
+                if (why == "unknown")
+                {
+                    ExplosionDrops.Scope++;
+                    try
+                    {
+                        t.Process_Smashed_Shard(piece, fromPlayer: false, entityBulletHit: true);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Plugin.Log.LogWarning("[Demolition] retry threw: " + ex.Message);
+                    }
+                    finally
+                    {
+                        ExplosionDrops.Scope--;
+                    }
+                    if (piece == null || piece.Smashed || piece.Is_Fallen)
+                    {
+                        _deferredDone++;
+                        Deferred.RemoveAt(i);
+                        continue;
+                    }
+                }
+                if (Time.time > Deferred[i].GiveUpAt || !IsTransient(why) && why != "unknown")
+                {
+                    Plugin.Log.LogInfo($"[Demolition] gave up on a shard of '{piece.FatherBI?.name}': {why}.");
+                    Deferred.RemoveAt(i);
+                }
+            }
+            FlushFallChecks(t);
+            if (Deferred.Count == 0 && _deferredDone > 0)
+            {
+                Plugin.Log.LogInfo($"[Demolition] {_deferredDone} queued shard(s) broken on retry.");
+                _deferredDone = 0;
+            }
+        }
+
+        private static readonly Collider[] FurniBuffer = new Collider[100];
+        private static System.Reflection.MethodInfo _furniHit;
+        private static SystemHouseManager _houseMgr;
+
+        /// <summary>
+        /// Mirrors SystemHouseManager's furniture contact pass (Check_Dis_For_Furnitures, Build_System:13704-13730):
+        /// overlap the piece's box on Mask_8_10, register each overlap through the game's own
+        /// Furni_Hit_BaI (which links the shard groups both ways and marks ground contact), then set
+        /// IsCoding. Done for the piece and for every uncoded furniture piece connected to it, because
+        /// Process_Smashed_Shard refuses a furniture smash while ANY connected world-building piece is
+        /// uncoded (:22202-22244).
+        /// </summary>
+        private static void EnsureFurnitureCoded(Build_Info start)
+        {
+            if (start == null || !start._IsFurniBI)
+            {
+                return;
+            }
+            try
+            {
+                if (_houseMgr == null)
+                {
+                    _houseMgr = UnityEngine.Object.FindObjectOfType<SystemHouseManager>();
+                }
+                if (_furniHit == null)
+                {
+                    _furniHit = AccessTools.Method(typeof(SystemHouseManager), "Furni_Hit_BaI");
+                }
+                if (_houseMgr == null || _furniHit == null || Global_Infos.ins == null)
+                {
+                    return;
+                }
+                int mask = Global_Infos.ins.Mask_8_10.value;
+                var waiting = Traverse.Create(_houseMgr).Field("_furniWaitContact").GetValue<HashSet<Build_Info>>();
+
+                // Walk the WHOLE connected graph, exactly like the guard does (Build_System:22213-22234): it
+                // refuses if any world-building piece anywhere in it is uncoded - including ones behind an
+                // already-coded neighbour, which the first version never reached.
+                var queue = new Queue<Build_Info>();
+                var seen = new HashSet<Build_Info> { start };
+                queue.Enqueue(start);
+                int codedFurni = 0, codedOther = 0, visited = 0;
+                while (queue.Count > 0 && visited < 3000)
+                {
+                    Build_Info bi = queue.Dequeue();
+                    visited++;
+                    if (bi == null)
+                    {
+                        continue;
+                    }
+                    if (!bi.IsCoding)
+                    {
+                        if (bi._IsFurniBI)
+                        {
+                            if (CodeFurniture(bi, mask))
+                            {
+                                waiting?.Remove(bi);
+                                codedFurni++;
+                            }
+                        }
+                        else if (bi._Type == Build_Info.Type.SystemHouseBI && bi._ItemType != Build_Info.ItemType.SysHouseBigWall)
+                        {
+                            // Not furniture, so there is no contact data to build; IsCoding only gates
+                            // this smash guard and the furniture pass (the only readers).
+                            bi.IsCoding = true;
+                            codedOther++;
+                        }
+                    }
+                    if (bi.shards_Groups.Count == 0)
+                    {
+                        continue;
+                    }
+                    foreach (Shards_Group contact in bi.shards_Groups[0].Contacts)
+                    {
+                        Build_Info other = contact != null ? contact.BI : null;
+                        if (other != null && seen.Add(other))
+                        {
+                            queue.Enqueue(other);
+                        }
+                    }
+                }
+                if (codedFurni + codedOther > 0)
+                {
+                    Plugin.Diag($"[Demolition] prepared {codedFurni} furniture + {codedOther} other world-building piece(s) " +
+                                       $"for breaking ({visited} connected piece(s) checked).");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning("[Demolition] furniture contact pass failed: " + ex.Message);
+            }
+        }
+
+        /// <summary>The game's own contact pass for one furniture piece, then IsCoding.</summary>
+        private static bool CodeFurniture(Build_Info bi, int mask)
+        {
+            if (bi.BaIs_All.Count == 0 || bi.shards_Groups.Count == 0)
+            {
+                return false;
+            }
+            Battle_Info first = bi.BaIs_All[0];
+            if (first == null || first.selfMeshRender == null)
+            {
+                return false;
+            }
+            Vector3 center = first.selfMeshRender.bounds.center;
+            Vector3 sc = first.transform.lossyScale;
+            Vector3 half = new Vector3(bi.Size.x * sc.x, bi.Size.y * sc.y, bi.Size.z * sc.z) * 0.5f + Vector3.one * 0.02f;
+            int n = Physics.OverlapBoxNonAlloc(center, half, FurniBuffer, first.transform.rotation, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                _furniHit.Invoke(_houseMgr, new object[] { FurniBuffer[i], bi });
+            }
+            bi.IsCoding = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Generated track from the Railway mod (tagged RailPieceTag): demolition gives it ordinary blast
+        /// damage instead of smashing the whole block, so its configured track health decides (user
+        /// 2026-09-28). Looked up by name - no reference to the Railway mod.
+        /// </summary>
+        private static bool IsRailwayPiece(Build_Info bi) => bi != null && bi.GetComponent("RailPieceTag") != null;
+
+        /// <summary>Breaks every shard of one block (demolition) - see ApplyToBuildables' wholeBlocks.</summary>
+        private static int SmashWholeBlock(Build_Info buildInfo, TopOnHit topOnHit, HashSet<Battle_Info> alreadyHit)
+        {
+            if (topOnHit == null || Smash_Fallen_Manager.ins == null)
+            {
+                return 0;
+            }
+            try
+            {
+                Smash_Fallen_Manager.ins.Spawn_BaIs_Under_BI(buildInfo);
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning($"[Explosion] Spawn_BaIs_Under_BI threw for '{buildInfo.name}': {ex.Message}");
+                return 0;
+            }
+            // World-building furniture pieces can't be broken until the game has worked out what they touch
+            // ("coded"), which it only does for pieces in its spawn queue near the player - support pieces
+            // left out of that queue refuse every hit ("Loading data... Please wait") and hold a building
+            // up forever. Do the game's own contact pass for this piece and its connected cluster first.
+            EnsureFurnitureCoded(buildInfo);
+
+            int n = 0;
+            // Copy first: smashing a shard can change the block's piece list.
+            var pieces = new List<Battle_Info>(buildInfo.Spawned_BaIs);
+            foreach (Battle_Info piece in pieces)
+            {
+                if (piece == null || piece.Is_Fallen || piece.Smashed || !alreadyHit.Add(piece))
+                {
+                    continue;
+                }
+                try
+                {
+                    topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true);
+                    // The game can turn a smash away silently (loading, saving, furniture data not ready).
+                    if (piece == null || piece.Smashed || piece.Is_Fallen)
+                    {
+                        n++;
+                        _demoShardsBroken++;
+                    }
+                    else
+                    {
+                        _demoShardsRefused++;
+                        string why = RefusalReason(piece, topOnHit);
+                        if (why == "unknown")
+                        {
+                            // None of the load/save/furniture guards is blocking (checked just above), yet it
+                            // didn't break. Run the smash with the guard pass skipped; everything it protects
+                            // has just been verified clear.
+                            topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true, forceRun: true);
+                            if (piece == null || piece.Smashed || piece.Is_Fallen)
+                            {
+                                n++;
+                                _demoShardsBroken++;
+                                _demoShardsRefused--;
+                                continue;
+                            }
+                            Plugin.Diag($"[Demolition] '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}) piece '{piece.name}' " +
+                                               $"still standing after a forced smash: layer {piece.gameObject.layer}, " +
+                                               $"HP left {buildInfo.Shards_HP_Left}.");
+                        }
+                        _demoReasons[why] = (_demoReasons.TryGetValue(why, out int c) ? c : 0) + 1;
+                        // Loading/saving refusals are temporary: queue it and try again shortly
+                        // (TickDeferred), rather than forcing past a guard that protects world loading.
+                        if (IsTransient(why))
+                        {
+                            Deferred.Add((piece, Time.time + 15f));
+                        }
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log.LogWarning($"[Explosion] demolishing '{piece.name}' threw: {ex.Message}");
+                }
+            }
+            _demoBlocks++;
+            if (buildInfo._Type == Build_Info.Type.SystemHouseBI)
+            {
+                _demoHouseBlocks++;
+            }
+            if (Plugin.EnableDiagnostics.Value)
+            {
+                Plugin.Log.LogInfo($"[Explosion] demolished '{buildInfo.name}' ({buildInfo._Type}/{buildInfo._ItemType}): {n} of {pieces.Count} shard(s) broken.");
+            }
+            return n > 0 ? 1 : 0;
+        }
+
+        /// <summary>
+        /// Mirrors the decision TopOnHit.One_Shot_Through makes before touching a piece: a lethal
+        /// hit (damage >= remaining HP on that piece) goes through Process_Smashed_Shard (the
+        /// method that actually breaks/pools/removes it), everything else is a plain MinusHP
+        /// partial-damage tick. Returns true if a hit was actually applied (for the caller's hit
+        /// counter).
+        /// </summary>
+        private static bool DamagePiece(Battle_Info piece, float damage, TopOnHit topOnHit, string context)
+        {
+            try
+            {
+                bool lethal = piece.FatherBI != null
+                    && piece.nameIndex >= 0
+                    && piece.nameIndex < piece.FatherBI.BaIs_HP_Lefts.Count
+                    && piece.FatherBI.BaIs_HP_Lefts[piece.nameIndex] <= damage;
+
+                if (lethal && topOnHit != null)
+                {
+                    topOnHit.Process_Smashed_Shard(piece, fromPlayer: true, entityBulletHit: true);
+                    if (Plugin.EnableDiagnostics.Value)
+                    {
+                        Plugin.Log.LogInfo($"[Explosion] piece '{piece.name}' {context}: LETHAL -{damage:F0} HP, Process_Smashed_Shard called.");
+                    }
+                }
+                else
+                {
+                    piece.MinusHP(damage);
+                    if (Plugin.EnableDiagnostics.Value)
+                    {
+                        string note = topOnHit == null ? " (no TopOnHit instance - can never be lethal via this path)" : "";
+                        Plugin.Log.LogInfo($"[Explosion] piece '{piece.name}' {context}: -{damage:F0} HP{note}.");
+                    }
+                }
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log.LogWarning($"[Explosion] damaging piece '{piece.name}' threw: {ex.Message}");
+                return false;
+            }
+        }
+    }
+}

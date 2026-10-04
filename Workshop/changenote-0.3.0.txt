@@ -1,0 +1,18 @@
+0.3.0 - Molotovs, contact grenades, land mines, improvised mines, remote charges that bring buildings down, and reworked recipes.
+
+NEW: Molotov cocktail (hand-crafted). Shatters into a 4.5 m pool of fire that burns for about 20 seconds. Zombies that walk through catch fire, keep burning for 10 seconds after they leave it, and can set the zombies around them alight. So can you (with self damage on). The flames and light are the game's own torch effects.
+NEW: Contact grenade (Gun Workbench). Explodes on the first thing it hits. A slightly smaller charge than the standard grenade.
+NEW: Land mine (Gun Workbench). Equip it and tap LMB: your character kneels and sets it down where you are looking. It arms once you step away, blinks red, and blows up whatever comes close. Nearby blasts set mines off, so they chain.
+NEW: Improvised mine (hand-crafted, Trap tab). A nail-packed can on a spring trigger. Nail shrapnel like the nail bomb, a crude trigger that clicks before it blows, and it sometimes fails to go off.
+NEW: Remote charges (Gun Workbench), in two versions. Place them like mines. While any are out, a small widget shows how many and ARMING / READY; press B (configurable) to set off every armed charge in range. No detonator item to carry.
+- DEMOLITION charge: sticks to walls as well as floors. Cuts out the walls and blocks around it and collapses the building: anything no longer held up from the ground comes down, lowest floors first, and stays destroyed when you save. Fells trees too, including the one it is stuck to.
+- ANTI-PERSONNEL charge: faces the way you look and fires a wide fan of fragments out of its front.
+Mines and charges are SAVED with your game, can be picked back up (look at one, press your interact key), and go off when shot or hit. They never arm while you are standing next to one.
+EXPLOSIONS: blasts throw chunks of the structure they hit, and the pieces a demolition knocks off are blown outward. Resources knocked loose land on the ground where the block was, instead of going into your bag.
+XP: explosive and fire kills now give the same XP as a gun kill, with the same skull marker and sound.
+RECIPES reworked, with amounts in line with the game's own recipes. Hand-made bombs no longer need Nitrate Powder (late-game): the nail bomb and improvised mine use 20-25 rounds of ANY ammo, any caliber and any mix, pulled apart for the powder. Grenade: 3 Iron Ingot, 10 Gun Powder, 8 Spring, 10 Scrap Brass. Nail bomb: 25 Nails, 20 ammo, 10 Duct Tape, 10 Scrap Iron, now on the hand-craft Melee tab next to the Molotov. Existing configs are updated automatically where you never changed a value, and your old config is backed up first.
+All explosives stack to 10.
+NEW SOUNDS: every explosion type has its own set of recorded takes and picks one at random, so chains of blasts no longer repeat the same clip. Distant blasts arrive a moment later and quieter. Grenades pop their pin and spoon when thrown; mines and charges beep when placed. The fireball is a denser, rolling ball of flame.
+LOOT: explosives are rarer now - military containers only, and about a third as common as other items there (Loot chance setting).
+Fixes: an item whose art failed to load could still be added to loot tables; the throw charge bar could vanish after loading a save.
+New settings are in ModMenu (Settings > Mods) and the Mod Manager.

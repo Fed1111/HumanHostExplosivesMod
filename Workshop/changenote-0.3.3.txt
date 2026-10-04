@@ -1,0 +1,3 @@
+0.3.3 - The mod now speaks your language.
+
+All of the mod's text - item names and descriptions, on-screen messages and the remote-charge widget - is translated into every language the game supports: Russian, German, French, Spanish, Italian, Polish, Portuguese, Turkish, Japanese, Korean, Thai and Simplified/Traditional Chinese. It follows the language set in the game's options. The translations are not checked by native speakers, so corrections are very welcome: the files are in the mod folder under Lang (one per language, e.g. ru.json) - edit one, restart, and please send me your fixes so everyone gets them. Lang/README.txt explains how.

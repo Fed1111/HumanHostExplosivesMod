@@ -1,0 +1,3 @@
+ModMenu support: settings now editable in-game under Settings > Mods when the ModMenu mod (Workshop 3794527105) is installed. Works exactly as before without it. Numeric settings gained sensible ranges (sliders).
+Human Host Mod Manager: ships a translation sidecar so the config editor shows readable setting names and short descriptions; numeric settings now have ranges, so they appear as sliders there too.
+Fix: the mod now finds its art even when a second copy of the DLL sits loose in the plugins folder (happened when the item was installed with both the in-game browser and the Mod Manager, or the DLL was copied by hand), and logs a clear warning naming the duplicate.

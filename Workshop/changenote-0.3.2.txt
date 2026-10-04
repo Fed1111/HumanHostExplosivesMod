@@ -1,0 +1,3 @@
+0.3.2 - Fix: an error every time a zombie stepped on a placed land mine.
+
+Zombies walking over a placed mine or remote charge triggered a NullReferenceException in the game's footstep sound code (shown in the error panel as Sound_Mgr Play_FootStep_Sound_At_Pos). Steps on a mine now simply make no surface sound. Mines still trigger, take bullets and can be picked up as before.
