@@ -200,7 +200,7 @@ namespace HumanHostExplosives
                 new ModMenu.ModMenuSetting(Plugin.ThrowAnimationSpeed, "Animation speed", "Throwing",
                     "Playback speed of the throw clip. The release point scales with it automatically."),
                 new ModMenu.ModMenuSetting(Plugin.ThrowAnimationInFirstPerson, "Animate in first person", "Throwing",
-                    "Off by default: the clip is a third-person throw and looks like flailing arms from inside the head."),
+                    "Plays the throw animation in first person too. Off: first-person throws leave straight from the camera with no arm movement."),
                 new ModMenu.ModMenuSetting(Plugin.EnableSwingSound, "Swing sound", "Throwing",
                     "Play the game's melee swing whoosh during the throw."),
                 new ModMenu.ModMenuSetting(Plugin.SwingSoundVolume, "Swing sound volume", "Throwing",

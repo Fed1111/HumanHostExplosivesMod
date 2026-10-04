@@ -357,8 +357,9 @@ namespace HumanHostExplosives
                 "the camera. Keeps the grenade clear of the player's own collider at spawn.");
 
             ThrowAnimationInFirstPerson = Config.Bind(
-                "Throw Animation", "ThrowAnimationInFirstPerson", false,
-                "Play the throw clip while the player is in FIRST person too. Off by default: the clip is a " +
+                "Throw Animation", "ThrowAnimationInFirstPerson", true,
+                "Play the throw clip while the player is in FIRST person too. ON by default since 0.3.5 (user tried it in play " +
+                "2026-10-04: looks fine). It was off before because the clip is a " +
                 "third-person over-the-shoulder throw, and seen from inside the head it reads as the arms flailing " +
                 "across the screen. With this off, a first-person throw releases instantly from the camera instead - " +
                 "which is also the only way the grenade is visible leaving, since the hand bone the clip throws from " +
@@ -408,6 +409,12 @@ namespace HumanHostExplosives
                 "so a value you later set back to an old default is never overwritten.");
             _storedConfigVersion = _freshConfig ? CurrentConfigVersion
                 : System.Math.Max(ConfigVersion.Value, MigratedDefaults030.Value ? 1 : 0);
+            // v12: first-person throw animation on by default. Bound above, before the stored version is known, so moved here.
+            if (!_freshConfig && _storedConfigVersion < 12 && !ThrowAnimationInFirstPerson.Value)
+            {
+                ThrowAnimationInFirstPerson.Value = true;
+                Log.LogInfo("[Migration] Throw Animation.ThrowAnimationInFirstPerson: 'False' was the old default - updated to 'True'.");
+            }
             EnableMolotov = BindMigrated(
                 "Molotov", "EnableMolotov", true,
                 new ConfigDescription("Register the Molotov. ON since 0.3.0, when it got its model and the fire system. It was off " +
@@ -866,7 +873,7 @@ namespace HumanHostExplosives
         private static int _storedConfigVersion;
 
         /// <summary>Bump whenever a default changes, and add the value it had to that entry's old-defaults list.</summary>
-        private const int CurrentConfigVersion = 11;
+        private const int CurrentConfigVersion = 12;
 
         /// <summary>
         /// Binds an entry and, on an UPGRADE from an older config version (never a fresh install), moves

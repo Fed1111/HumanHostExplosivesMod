@@ -491,7 +491,7 @@
       "en": "Playback speed of the throw clip. The release point scales with it automatically."
     },
     "ThrowAnimationInFirstPerson": {
-      "en": "Off by default: the clip is a third-person throw and looks like flailing arms from inside the head."
+      "en": "Plays the throw animation in first person too. Off: first-person throws leave straight from the camera with no arm movement."
     },
     "EnableSwingSound": {
       "en": "Play the game's melee swing whoosh during the throw."
