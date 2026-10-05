@@ -322,7 +322,7 @@ namespace HumanHostExplosives
         [HarmonyPatch(typeof(Tool_Interacter), nameof(Tool_Interacter.Directly_Interact))]
         private static class HitPatch
         {
-            private static bool Prefix(Collider hitCol, ref bool __result)
+            private static bool Prefix(Tool_Interacter __instance, Collider hitCol, ref bool __result)
             {
                 if (hitCol == null)
                 {
@@ -335,6 +335,17 @@ namespace HumanHostExplosives
                 }
                 try
                 {
+                    // A melee swing - in practice a zombie's, whose hit box and follow-through ray
+                    // (Hit_Char_Trigger re-shoots past the player it hit) reach a charge stuck to the
+                    // wall beside you - does not set off a remote charge: plastic explosive doesn't go
+                    // off from a knock. Bullets and arrows still do. Report 2026-10-05: "a demo charge
+                    // went off when I placed it".
+                    if (__instance is Weapon_Melee && m.Def != null && m.Def.RemoteDetonated)
+                    {
+                        __result = true;
+                        return false;
+                    }
+                    Plugin.Log.LogInfo($"[Mine] '{m.Def?.Tag}' hit by {(__instance != null ? __instance.GetType().Name + " '" + __instance.name + "'" : "nothing")}.");
                     MineManager.SetOffByHit(m);
                 }
                 catch (Exception ex)
