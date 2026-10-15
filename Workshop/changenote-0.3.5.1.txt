@@ -1,2 +1,2 @@
 0.3.5.1
-- Works with the October 14 game update (the game changed how it stores the world seed and one damage function). No gameplay changes.
+- Works with the October 13 game update (the game changed how it stores the world seed and one damage function). No gameplay changes.
