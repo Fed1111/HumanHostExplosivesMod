@@ -147,6 +147,11 @@
       <HintPath>$(ManagedDir)\Build_System.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Terrain: Terrain_Loader_Manager.neutralizedPlayerMove (the world shift), so the blast decoy stays put. -->
+    <Reference Include="Terrain">
+      <HintPath>$(ManagedDir)\Terrain.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>

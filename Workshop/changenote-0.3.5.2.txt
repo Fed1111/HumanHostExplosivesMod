@@ -1,0 +1,2 @@
+0.3.5.2
+- Explosions now actually pull zombies to where they went off, not to you. Before, zombies that heard a grenade, molotov, nail bomb or mine headed straight for whoever threw it. Now they walk to the blast and look around there, so throwing one as a distraction works.

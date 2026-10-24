@@ -11,10 +11,12 @@ namespace HumanHostExplosives
     /// (TopOnHit.Attract_Zombies_Around_Hit_Point), so an explosion emitting the same event is
     /// consistent with how the game already handles loud events rather than a bolted-on system.
     ///
-    /// Note vanilla's tree version reports the sound at the PLAYER's chest rather than the tree,
-    /// so zombies path to the player. For a thrown explosive that would be wrong - the whole point
-    /// of a distraction throw is that they go to where it went off - so this reports the blast
-    /// position instead.
+    /// Where zombies go: AI_Agent.Begin_Move_To_Target ignores soundSourcePos and locks onto the
+    /// soundSource COLLIDER (its transform becomes the zombie's target). Vanilla passes the player's
+    /// chest collider, so zombies walked to the thrower, not the boom (KangarooCaptain, 2026-10-23).
+    /// So the sound comes from a small trigger collider left at the blast (BlastDecoy): zombies walk
+    /// there, and when it goes away they lose the target and wander from that spot. charController
+    /// stays the player: On_Sound_Played reads its height and stealth skills without a null check.
     /// </summary>
     internal static class NoiseAttractor
     {
@@ -37,11 +39,8 @@ namespace HumanHostExplosives
                 var param = default(Creature_Mgr.OnSoundPlayed_Param);
                 param.soundSourcePos = position;
                 param.hearDis = hearDistance;
-                // soundSource/charController are the fields the AI uses to resolve who made the
-                // noise. A thrown projectile has neither, and the player is the one who caused it,
-                // so attribute it to them - but keep soundSourcePos at the blast so they walk there.
-                param.soundSource = player._ragDollMgr != null ? player._ragDollMgr._ChestBoxCollider : null;
-                param.sourceRadius = player.capCol != null ? player.capCol.radius : 0.3f;
+                param.soundSource = BlastDecoy.Make(position);
+                param.sourceRadius = BlastDecoy.Radius;
                 param.charController = player;
 
                 mgr._attctZombies.Invoke(param);
@@ -55,6 +54,45 @@ namespace HumanHostExplosives
             {
                 Plugin.Log.LogWarning($"[Noise] attract failed: {ex.Message}");
             }
+        }
+    }
+
+    /// <summary>
+    /// The spot zombies walk to after an explosion: an invisible trigger (Ignore Raycast layer, so nothing
+    /// hits or stands on it) that follows the game's world shift and removes itself after a while.
+    /// </summary>
+    internal sealed class BlastDecoy : MonoBehaviour
+    {
+        internal const float Radius = 0.3f;
+        private const float Seconds = 15f;   // long enough to walk over; then they wander from there
+
+        private Vector3 _real;
+        private float _until;
+
+        private static Vector3 Shift =>
+            Terrain_Loader_Manager.ins != null ? Terrain_Loader_Manager.ins.neutralizedPlayerMove : Vector3.zero;
+
+        internal static Collider Make(Vector3 world)
+        {
+            var go = new GameObject("HHE_BlastDecoy") { layer = 2 };
+            go.transform.position = world;
+            var col = go.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = Radius;
+            var d = go.AddComponent<BlastDecoy>();
+            d._real = world - Shift;
+            d._until = Time.time + Seconds;
+            return col;
+        }
+
+        private void Update()
+        {
+            if (Time.time > _until)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            transform.position = _real + Shift;
         }
     }
 }
