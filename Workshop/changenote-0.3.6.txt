@@ -1,0 +1,3 @@
+0.3.6
+- Explosions now pull zombies to where they went off, not to you. Before, zombies that heard a grenade, molotov, nail bomb or mine headed straight for whoever threw it. Now they walk to the blast and look around there, so a throw works as a distraction.
+- Fix: a demolition charge could go off right after you placed it, if a zombie swung at you next to it. Remote charges (demolition and anti-personnel) no longer go off from melee hits. Shooting them still sets them off, and land mines still go off when hit.
