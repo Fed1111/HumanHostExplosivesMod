@@ -211,6 +211,8 @@ namespace HumanHostExplosives
                     "Your own explosives can hurt you."),
                 new ModMenu.ModMenuSetting(Plugin.SelfDamageMultiplier, "Self damage multiplier", "Danger",
                     "Applied only to damage you take from your own explosives. 1 is full risk."),
+                new ModMenu.ModMenuSetting(Plugin.CreatureDamageMultiplier, "Zombie damage multiplier", "Danger",
+                    "Multiplies all explosive and fire damage to zombies, on top of each item's own damage. For very high-level zombies. Never affects you."),
                 new ModMenu.ModMenuSetting(Plugin.ExplosionsAttractZombies, "Explosions attract zombies", "Danger",
                     "Zombies path to the blast, not to you, so a thrown explosive works as a distraction."),
                 new ModMenu.ModMenuSetting(Plugin.ExplosionResourcesOnGround, "Resources drop on the ground", "Danger",

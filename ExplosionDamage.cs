@@ -92,7 +92,8 @@ namespace HumanHostExplosives
                 // Grenades are risky to use at close range in real life too - self-damage uses
                 // the same falloff as everyone else, just scaled down separately so it can be
                 // tuned (or turned off) without affecting damage to others.
-                float damage = maxDamage * falloff * exposure * (isSelf ? Plugin.SelfDamageMultiplier.Value : 1f);
+                float damage = maxDamage * falloff * exposure *
+                    (isSelf ? Plugin.SelfDamageMultiplier.Value : ctrl._isPlayer ? 1f : Plugin.CreatureDamageMultiplier.Value);
                 BodyColliderScript bodyScript = ctrl._ragDollMgr ? ctrl._ragDollMgr._headBodyScript : null;
 
                 KillXp.Watch(ctrl);   // full weapon-kill XP if this kills it (see KillXp)

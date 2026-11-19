@@ -239,6 +239,9 @@
     "SelfDamageMultiplier": {
       "en": "Self damage multiplier"
     },
+    "CreatureDamageMultiplier": {
+      "en": "Zombie damage multiplier"
+    },
     "ExplosionsAttractZombies": {
       "en": "Explosions attract zombies"
     },
@@ -504,6 +507,9 @@
     },
     "SelfDamageMultiplier": {
       "en": "Applied only to damage you take from your own explosives. 1 is full risk."
+    },
+    "CreatureDamageMultiplier": {
+      "en": "Multiplies all explosive and fire damage to zombies, on top of each item's own damage. For very high-level zombies. Never affects you."
     },
     "ExplosionsAttractZombies": {
       "en": "Zombies path to the blast, not to you, so a thrown explosive works as a distraction."

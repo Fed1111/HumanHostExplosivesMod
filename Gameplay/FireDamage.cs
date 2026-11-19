@@ -38,6 +38,10 @@ namespace HumanHostExplosives
                     return false;
                 }
             }
+            else
+            {
+                damage *= Plugin.CreatureDamageMultiplier.Value;
+            }
 
             Smash_Fallen_Manager smash = Smash_Fallen_Manager.ins;
             if (smash == null)

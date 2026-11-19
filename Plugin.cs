@@ -59,6 +59,7 @@ namespace HumanHostExplosives
         internal static ConfigEntry<float> BuildableDamage;
         internal static ConfigEntry<bool> AllowSelfDamage;
         internal static ConfigEntry<float> SelfDamageMultiplier;
+        internal static ConfigEntry<float> CreatureDamageMultiplier;
         internal static ConfigEntry<float> ExplosionVolume;
         internal static ConfigEntry<bool> ExplosionsAttractZombies;
         internal static ConfigEntry<float> GrenadeNoiseRadius;
@@ -284,6 +285,11 @@ namespace HumanHostExplosives
             SelfDamageMultiplier = Config.Bind(
                 "Explosives", "SelfDamageMultiplier", 1f,
                 new ConfigDescription("Multiplier applied only to self-damage (on top of the normal distance falloff), independent of damage dealt to others. 1 = full risk, same as anyone else caught in the blast.", new AcceptableValueRange<float>(0f, 2f)));
+            CreatureDamageMultiplier = Config.Bind(
+                "Explosives", "CreatureDamageMultiplier", 1f,
+                new ConfigDescription("Multiplier on all explosive and fire damage to zombies and other creatures - every item's own " +
+                "damage settings times this. Never applies to you. For very high-level zombies (a player asked: level-3000 zombies " +
+                "shrugged off 10,000 damage), where the per-item sliders top out.", new AcceptableValueRange<float>(1f, 100f)));
             ExplosionVolume = Config.Bind(
                 "Explosives", "ExplosionVolume", 4f,
                 new ConfigDescription("AudioSource volume for the detonation sound. Unity allows values above 1 (amplification beyond unity gain) - the synthesized waveform itself is already near max amplitude, so getting louder means turning this up, not the waveform.", new AcceptableValueRange<float>(0f, 8f)));
