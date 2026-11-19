@@ -1393,11 +1393,12 @@ namespace HumanHostExplosives
                             codedOther++;
                         }
                     }
-                    if (bi.shards_Groups.Count == 0)
+                    // Game 2026-11-13 null-guards slot 0 the same way (Build_Info.Try_Get_First_Group).
+                    if (!bi.Try_Get_First_Group(out Shards_Group firstGroup))
                     {
                         continue;
                     }
-                    foreach (Shards_Group contact in bi.shards_Groups[0].Contacts)
+                    foreach (Shards_Group contact in firstGroup.Contacts)
                     {
                         Build_Info other = contact != null ? contact.BI : null;
                         if (other != null && seen.Add(other))

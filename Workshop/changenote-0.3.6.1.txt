@@ -1,2 +1,3 @@
 0.3.6.1
 - New setting: Zombie damage multiplier (Danger section, 1x to 100x). It multiplies all explosive and fire damage to zombies on top of each item's own damage, for very high-level zombies where the damage sliders top out. It never makes your own explosives hurt you more. Default 1x, so nothing changes unless you raise it.
+- Checked against the 13 November game update: everything still hooks in fine. One demolition check now uses the game's new safe lookup for building pieces.
