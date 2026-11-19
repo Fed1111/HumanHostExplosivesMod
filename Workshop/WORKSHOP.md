@@ -111,7 +111,7 @@ the ground comes down, lowest floors first, and stays destroyed when you save. I
 mines; a small on-screen widget shows how many are out and whether they are ARMING or READY, and one key
 (B by default) sets them all off. No detonator to carry. Shootable, can be picked back up, saved with
 your game.
-[*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar.
+[*][b]Hold to charge[/b] a throw for distance. Press G to quick-throw from your hotbar. The throw animation plays in first person too.
 [*]Explosions and breaking glass [b]draw zombies[/b] to the spot, not to you, so a throw works as a
 distraction. Lure them onto a mine.
 [*]Blasts throw chunks of what they hit, and resources knocked loose land on the ground, not in your bag.
@@ -140,6 +140,8 @@ home-made: you craft those.
 [h2]Configuration[/h2]
 All settings are in-game under Settings > Mods if you have [b]ModMenu[/b], and in the [b]Human
 Host Mod Manager[/b]. They are also in [i]BepInEx/config/com.nf.humanhostexplosives.cfg[/i].
+Fighting really high-level zombies? [b]Zombie damage multiplier[/b] (Danger section) multiplies all
+explosive and fire damage to zombies, up to 100x. It never makes your own blasts hurt you more.
 
 [h2]Requirements[/h2]
 BepInEx 5. Tested in singleplayer. Install with the in-game mod browser OR the Mod Manager, not
